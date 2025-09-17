@@ -16,9 +16,15 @@ const conversationView = document.getElementById('conversation-view');
 const mainContent = document.getElementById('main-content');
 const loadingIndicator = document.getElementById('loading-indicator');
 const searchBox = document.getElementById('search-box');
-const filterAssetsCheckbox = document.getElementById('filter-images-checkbox');
+const filterAssetsCheckbox = document.getElementById('filter-assets-checkbox');
 const filterAudioCheckbox = document.getElementById('filter-audio-checkbox');
+const filterImagesCheckbox = document.getElementById('filter-images-checkbox');
 const searchStatus = document.getElementById('search-status'); // Pour afficher statut/résultats recherche
+
+const AUDIO_MIME_KEYWORDS = ['mpeg layer 3', 'wave audio', 'ogg data', 'flac audio', 'aac audio'];
+const IMAGE_MIME_KEYWORDS = ['png image data', 'jpeg image data', 'gif image data', 'webp image data', 'svg xml', 'bitmap'];
+const AUDIO_EXTENSION_REGEX = /\.(wav|mp3|ogg|m4a|aac|flac)$/i;
+const IMAGE_EXTENSION_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|heic|heif)$/i;
 
 // --- Variable globale pour le délai de recherche ---
 let searchDebounceTimeout = null;
@@ -42,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     else { console.error("Assets filter checkbox not found."); }
     if (filterAudioCheckbox) { filterAudioCheckbox.addEventListener('change', updateDisplayedConversationList); }
     else { console.error("Audio filter checkbox not found."); }
+    if (filterImagesCheckbox) { filterImagesCheckbox.addEventListener('change', updateDisplayedConversationList); }
+    else { console.error("Image filter checkbox not found."); }
     document.addEventListener('keydown', handleKeyboardNavigation);
     // Listener pour "Copier Tout" attaché dynamiquement dans displayConversation
 
@@ -145,7 +153,10 @@ async function loadConversationsForFolder() {
 function resetUI() {
     conversationList.innerHTML = '';
     conversationView.innerHTML = '<h2>Sélectionnez une conversation</h2><p>Cliquez sur un titre.</p><div id="conversation-content"></div>';
-    searchBox.value = ''; filterAssetsCheckbox.checked = false; filterAudioCheckbox.checked = false;
+    if (searchBox) searchBox.value = '';
+    if (filterAssetsCheckbox) filterAssetsCheckbox.checked = false;
+    if (filterAudioCheckbox) filterAudioCheckbox.checked = false;
+    if (filterImagesCheckbox) filterImagesCheckbox.checked = false;
     currentFolderData = { conversations: [], asset_mapping: {}, file_types: {} };
     document.querySelectorAll('#conversation-list li.selected').forEach(i => i.classList.remove('selected'));
     setSearchStatus('');
@@ -170,7 +181,9 @@ function preprocessConversationData() {
     if (!currentFolderData.conversations?.length) { console.warn("preprocess: No convos."); currentFolderData.conversations = []; return; }
     currentFolderData.conversations.forEach((conv, index) => {
         if (typeof conv !== 'object' || conv === null) { console.warn(`preprocess: Invalid item @ ${index}.`); conv = { id: `invalid_${index}`, title: '[Inv]', mapping: {} }; currentFolderData.conversations[index] = conv; return; }
-        conv.has_asset = conversationHasAsset(conv); conv.has_audio = conversationHasAudio(conv);
+        conv.has_asset = conversationHasAsset(conv);
+        conv.has_audio = conversationHasAudio(conv);
+        conv.has_image = conversationHasImage(conv);
         let id = conv.conversation_id || conv.id;
         if (!id || typeof id !== 'string' || id.startsWith('invalid_')) { id = `genid_${index}`; }
         conv.id = id;
@@ -180,41 +193,106 @@ function preprocessConversationData() {
 }
 
 /** Vérifie si une conversation contient une référence à un asset. */
+function collectAssetPartsFromNode(node) {
+    const parts = [];
+    if (node?.message?.content?.parts && Array.isArray(node.message.content.parts)) {
+        parts.push(...node.message.content.parts);
+    }
+    if (node?.message?.author?.role === 'tool') {
+        const toolParts = node.message?.metadata?.aggregate_result?.message?.content?.parts;
+        if (Array.isArray(toolParts)) {
+            parts.push(...toolParts);
+        }
+    }
+    return parts;
+}
+
 function conversationHasAsset(conversation) {
     if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
     for (const nodeId in conversation.mapping) {
-        const node = conversation.mapping[nodeId]; if (!node) continue;
-        if (node.message?.content?.parts?.some(p => p?.asset_pointer)) return true;
-        if (node.message?.author?.role === 'tool' && node.message?.metadata?.aggregate_result?.message?.content?.parts?.some(p => p?.asset_pointer)) return true;
-    } return false;
+        const node = conversation.mapping[nodeId];
+        if (!node) continue;
+        const parts = collectAssetPartsFromNode(node);
+        if (parts.some(part => part?.asset_pointer)) return true;
+    }
+    return false;
 }
 
 /** Vérifie spécifiquement les assets audio. */
 function conversationHasAudio(conversation) {
-     if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
-     const am = currentFolderData.asset_mapping||{}; const tm = currentFolderData.file_types||{};
-     for (const id in conversation.mapping) {
-         const n = conversation.mapping[id]; if (!n?.message?.content?.parts || !Array.isArray(n.message.content.parts)) continue;
-         for (const p of n.message.content.parts) {
-             if (p?.asset_pointer && am[p.asset_pointer]) {
-                 const f = am[p.asset_pointer]; const et = tm[f];
-                 // Vérification assouplie basée sur le type MIME explicite ou l'extension
-                 if (et) {
-                     const l = et.toLowerCase();
-                     if (l.startsWith('audio/') || ['mpeg layer 3', 'wave audio', 'ogg data', 'flac audio', 'aac audio'].some(keyword => l.includes(keyword))) return true;
-                 }
-                 if (/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(f)) return true; // Fallback extension
-             }
-         }
-     } return false;
+    if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
+    const am = currentFolderData.asset_mapping || {};
+    const tm = currentFolderData.file_types || {};
+    for (const id in conversation.mapping) {
+        const node = conversation.mapping[id];
+        if (!node) continue;
+        const parts = collectAssetPartsFromNode(node);
+        for (const part of parts) {
+            if (!part?.asset_pointer || !am[part.asset_pointer]) continue;
+            const filename = am[part.asset_pointer];
+            const explicitType = tm[filename];
+            if (typeof explicitType === 'string') {
+                const lower = explicitType.toLowerCase();
+                if (lower.startsWith('audio/') || AUDIO_MIME_KEYWORDS.some(keyword => lower.includes(keyword))) return true;
+            }
+            if (AUDIO_EXTENSION_REGEX.test(filename)) return true;
+        }
+    }
+    return false;
+}
+
+function conversationHasImage(conversation) {
+    if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
+    const am = currentFolderData.asset_mapping || {};
+    const tm = currentFolderData.file_types || {};
+    for (const id in conversation.mapping) {
+        const node = conversation.mapping[id];
+        if (!node) continue;
+        const parts = collectAssetPartsFromNode(node);
+        for (const part of parts) {
+            if (!part?.asset_pointer || !am[part.asset_pointer]) continue;
+            const filename = am[part.asset_pointer];
+            const explicitType = tm[filename];
+            if (typeof explicitType === 'string') {
+                const lower = explicitType.toLowerCase();
+                if (lower.startsWith('image/') || IMAGE_MIME_KEYWORDS.some(keyword => lower.includes(keyword))) return true;
+            }
+            if (IMAGE_EXTENSION_REGEX.test(filename)) return true;
+        }
+    }
+    return false;
+}
+
+function appendConversationIcons(listItem, conversation) {
+    if (!listItem || !conversation) return;
+    const icons = [];
+    if (conversation.has_image) {
+        icons.push({ className: 'fas fa-image', title: 'Image' });
+    }
+    if (conversation.has_audio) {
+        icons.push({ className: 'fas fa-volume-up', title: 'Audio' });
+    }
+    if (conversation.has_asset && !conversation.has_image && !conversation.has_audio) {
+        icons.push({ className: 'fas fa-photo-video', title: 'Média/Fichier' });
+    }
+    icons.forEach(iconCfg => {
+        listItem.appendChild(document.createTextNode(' '));
+        const iconEl = document.createElement('i');
+        iconEl.className = iconCfg.className;
+        iconEl.style.opacity = '0.6';
+        iconEl.style.fontSize = '0.8em';
+        iconEl.title = iconCfg.title;
+        listItem.appendChild(iconEl);
+    });
 }
 
 /** Met à jour la liste affichée basée sur FILTRE TITRE et CHECKBOXES. */
 function updateDisplayedConversationList() {
     console.log("updateDisplayedConversationList: Based on title search and filters.");
     const searchTerm = searchBox.value.toLowerCase().trim(); // Recherche TITRE
-    const filterAssets = filterAssetsCheckbox.checked;
-    const filterAudio = filterAudioCheckbox.checked;
+    const filterAssets = !!(filterAssetsCheckbox && filterAssetsCheckbox.checked);
+    const filterAudio = !!(filterAudioCheckbox && filterAudioCheckbox.checked);
+    const filterImages = !!(filterImagesCheckbox && filterImagesCheckbox.checked);
     conversationList.innerHTML = '';
     if (!searchTerm) setSearchStatus('');
 
@@ -225,20 +303,27 @@ function updateDisplayedConversationList() {
         const titleMatch = !searchTerm || (c.title && typeof c.title === 'string' && c.title.toLowerCase().includes(searchTerm));
         const assetMatch = !filterAssets || c.has_asset;
         const audioMatch = !filterAudio || c.has_audio;
-        return titleMatch && assetMatch && audioMatch;
+        const imageMatch = !filterImages || c.has_image;
+        return titleMatch && assetMatch && audioMatch && imageMatch;
     });
 
     if (filtered.length > 0) {
         filtered.forEach(c => {
-            const l = document.createElement('li'); l.textContent = c.title || '[Sans Titre]';
-            if (c.id) l.dataset.conversationId = c.id; else { l.style.opacity="0.5"; l.title="Err ID"; }
-            if (c.has_asset) l.innerHTML+=' <i class="fas fa-photo-video" style="opacity:0.6;font-size:0.8em;" title="Média/Fichier"></i>';
-            conversationList.appendChild(l);
+            const listItem = document.createElement('li');
+            const titleText = c.title || '[Sans Titre]';
+            if (c.id) listItem.dataset.conversationId = c.id;
+            else { listItem.style.opacity = "0.5"; listItem.title = "ID invalide"; }
+            listItem.textContent = '';
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = titleText;
+            listItem.appendChild(titleSpan);
+            appendConversationIcons(listItem, c);
+            conversationList.appendChild(listItem);
         });
-        if (searchTerm || filterAssets || filterAudio) setSearchStatus(`${filtered.length} résultat(s) pour filtres/titre.`);
+        if (searchTerm || filterAssets || filterAudio || filterImages) setSearchStatus(`${filtered.length} résultat(s) pour filtres/titre.`);
     } else {
         if (searchTerm) conversationList.innerHTML = '<li class="empty-list">Aucun titre ne correspond.</li>';
-        else if (filterAssets || filterAudio) conversationList.innerHTML = '<li class="empty-list">Aucun résultat avec ces filtres.</li>';
+        else if (filterAssets || filterAudio || filterImages) conversationList.innerHTML = '<li class="empty-list">Aucun résultat avec ces filtres.</li>';
         else conversationList.innerHTML = '<li class="empty-list">Aucune conversation valide.</li>';
     }
 }
@@ -306,10 +391,14 @@ function displaySearchResults(results) {
         console.log(`  Processing result ${index}:`, conv);
         if (typeof conv !== 'object' || !conv.id || typeof conv.title !== 'string') { console.warn(`  Invalid search result item @ ${index}:`, conv); return; }
         const listItem = document.createElement('li');
-        listItem.textContent = conv.title || '[Sans Titre]';
+        const titleText = conv.title || '[Sans Titre]';
+        listItem.textContent = '';
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = titleText;
+        listItem.appendChild(titleSpan);
         listItem.dataset.conversationId = conv.id;
         const originalConv = currentFolderData.conversations.find(c => c.id === conv.id);
-        if (originalConv?.has_asset) listItem.innerHTML += ' <i class="fas fa-photo-video" style="opacity:0.6;font-size:0.8em;" title="Média/Fichier"></i>';
+        if (originalConv) appendConversationIcons(listItem, originalConv);
         console.log(`    Created listItem:`, listItem.outerHTML);
         conversationList.appendChild(listItem);
     });
@@ -410,13 +499,25 @@ function displayConversation(conversationId) {
                             else { const a=document.createElement('a'); a.href=assetUrl; a.target='_blank'; a.textContent=`[${cleanString(fileTypeDesc)}]: ${assetFilename}`; a.classList.add('data-link'); const p=document.createElement('p'); p.appendChild(a); contentElement.appendChild(p); }
                         } else { contentElement.innerHTML += `<p><i>[Fichier (${cleanString(part.asset_pointer)}) non mappé]</i></p>`; }
                     // --- FIN SECTION ASSET CORRIGÉE ---
-                    } else if (part.content_type === 'code' && part.text) { const pre=document.createElement('pre'); const code=document.createElement('code'); if(part.language) code.className=`language-${part.language}`; code.textContent=cleanString(part.text||''); pre.appendChild(code); contentElement.appendChild(pre); }
+                    } else if (part.content_type === 'code' && part.text) {
+                        const pre = document.createElement('pre');
+                        pre.classList.add('code-block');
+                        const code = document.createElement('code');
+                        const rawLanguage = (part.language || '').toLowerCase();
+                        if (rawLanguage) { code.classList.add(`language-${rawLanguage}`); }
+                        const sanitizedText = cleanString(part.text || '');
+                        code.innerHTML = basicHighlightToHtml(sanitizedText, rawLanguage);
+                        code.dataset.basicHighlighted = 'true';
+                        pre.appendChild(code);
+                        contentElement.appendChild(pre);
+                    }
                     else if (part.text && typeof part.text === 'string') { const cleaned=cleanString(part.text); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
                     else { console.warn("Unhandled object part:", part); contentElement.innerHTML += `<p><i>[Contenu Objet Non Géré]</i></p>`; }
                 } else if (part !== null && part !== undefined) { console.warn("Unexpected part type:", typeof part, part); }
             });
         } else if (msg.text && typeof msg.text === 'string') { const cleaned=cleanString(msg.text); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
         else if (contentElement.innerHTML.trim() === '') { contentElement.innerHTML = '<i>[Message vide]</i>'; }
+        enhanceCodeBlocks(contentElement);
         messageElement.appendChild(contentElement);
         conversationContentContainer.appendChild(messageElement);
     }); // Fin boucle messages
@@ -469,6 +570,172 @@ function getMarkdownForMessagePart(part) {
         else if (part.text && typeof part.text === 'string') { return cleanString(part.text).trim(); }
         else return `*[Contenu Objet Non Géré]*`;
     } return '';
+}
+
+const CODE_LANGUAGE_ALIASES = {
+    py: 'python',
+    py3: 'python',
+    python: 'python',
+    js: 'javascript',
+    jsx: 'javascript',
+    javascript: 'javascript',
+    json: 'javascript',
+    ts: 'javascript',
+    typescript: 'javascript',
+    c: 'c',
+    h: 'c',
+    cpp: 'c',
+    'c++': 'c',
+    html: 'html',
+    xml: 'html',
+    css: 'css'
+};
+
+const CODE_KEYWORDS = {
+    python: ['def','class','return','if','elif','else','for','while','try','except','finally','raise','import','from','as','with','lambda','yield','True','False','None','pass','break','continue','global','nonlocal','assert','async','await'],
+    javascript: ['function','return','if','else','for','while','do','switch','case','break','continue','const','let','var','class','extends','import','from','export','default','new','this','super','try','catch','finally','throw','async','await','null','undefined','true','false'],
+    c: ['int','float','double','char','void','long','short','unsigned','signed','return','if','else','for','while','do','switch','case','break','continue','struct','typedef','enum','sizeof','static','const','volatile','extern','NULL'],
+    css: ['@media','@import','@font-face','@keyframes','from','to','var'],
+    html: ['html','head','body','title','meta','link','script','style','div','span','section','article','nav','header','footer','main','aside','ul','ol','li','table','thead','tbody','tr','td','th','form','input','button','label','textarea','canvas','svg','img','a'],
+    default: ['return','if','else','for','while','class','function','def','true','false','null','None','True','False']
+};
+
+function escapeHtmlForCode(value) {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|\[\]\\]/g, '\\$&');
+}
+
+function normalizeLanguageAlias(language) {
+    if (!language) return 'plain';
+    const key = language.toLowerCase();
+    return CODE_LANGUAGE_ALIASES[key] || key;
+}
+
+function getHighlightPatterns(language) {
+    const lang = normalizeLanguageAlias(language);
+    const patterns = [
+        { regex: /"(?:\\.|[^"\\])*"/g, type: 'string', priority: 40 },
+        { regex: /'(?:\\.|[^'\\])*'/g, type: 'string', priority: 40 },
+        { regex: /`(?:\\.|[^`\\])*`/g, type: 'string', priority: 40 },
+        { regex: /\b0x[0-9a-fA-F]+\b/g, type: 'number', priority: 25 },
+        { regex: /\b\d+(?:\.\d+)?\b/g, type: 'number', priority: 25 }
+    ];
+
+    if (lang === 'python') {
+        patterns.push({ regex: /(?<!["'])#.*$/gm, type: 'comment', priority: 50 });
+        patterns.push({ regex: /("""|''')[\s\S]*?\1/g, type: 'string', priority: 45 });
+    } else if (lang === 'javascript' || lang === 'c' || lang === 'css') {
+        patterns.push({ regex: /\/\/.*$/gm, type: 'comment', priority: 50 });
+        patterns.push({ regex: /\/\*[\s\S]*?\*\//g, type: 'comment', priority: 50 });
+    } else if (lang === 'html') {
+        patterns.push({ regex: /<!--[\s\S]*?-->/g, type: 'comment', priority: 50 });
+    }
+
+    if (lang === 'c') {
+        patterns.push({ regex: /#[a-zA-Z_]\w*/g, type: 'keyword', priority: 32 });
+    }
+
+    if (lang === 'css') {
+        patterns.push({ regex: /@[a-zA-Z-]+/g, type: 'keyword', priority: 32 });
+        patterns.push({ regex: /(?:--)?[a-zA-Z][a-zA-Z0-9-]*(?=\s*:)/g, type: 'property', priority: 28 });
+    }
+
+    if (lang === 'html') {
+        patterns.push({ regex: /<\/?[a-zA-Z][a-zA-Z0-9:-]*/g, type: 'tag', priority: 45 });
+        patterns.push({ regex: /\b[a-zA-Z-:]+(?=\s*=)/g, type: 'attr', priority: 30 });
+        patterns.push({ regex: /&[a-zA-Z0-9#]+;/g, type: 'entity', priority: 20 });
+    }
+
+    const keywordList = CODE_KEYWORDS[lang] || CODE_KEYWORDS.default;
+    if (keywordList && keywordList.length) {
+        const escapedList = keywordList.map(escapeRegex).join('|');
+        if (escapedList) {
+            patterns.push({ regex: new RegExp(`\\b(?:${escapedList})\\b`, 'g'), type: 'keyword', priority: 35 });
+        }
+    }
+
+    return patterns;
+}
+
+function basicHighlightToHtml(codeText, language) {
+    const source = typeof codeText === 'string' ? codeText : String(codeText ?? '');
+    if (!source) { return ''; }
+    const patterns = getHighlightPatterns(language);
+    const tokens = [];
+
+    patterns.forEach((pattern, idx) => {
+        const regex = pattern.regex;
+        regex.lastIndex = 0;
+        let match;
+        while ((match = regex.exec(source)) !== null) {
+            const text = match[0];
+            tokens.push({
+                start: match.index,
+                end: match.index + text.length,
+                type: pattern.type,
+                priority: pattern.priority ?? (patterns.length - idx),
+                text
+            });
+            if (match.index === regex.lastIndex) { regex.lastIndex += 1; }
+        }
+    });
+
+    tokens.sort((a, b) => {
+        if (a.start !== b.start) return a.start - b.start;
+        if (a.priority !== b.priority) return b.priority - a.priority;
+        const lenDiff = (b.end - b.start) - (a.end - a.start);
+        if (lenDiff !== 0) return lenDiff;
+        return 0;
+    });
+
+    const merged = [];
+    let currentEnd = -1;
+    tokens.forEach(token => {
+        if (token.start >= currentEnd) {
+            merged.push(token);
+            currentEnd = token.end;
+        }
+    });
+
+    let cursor = 0;
+    let html = '';
+    merged.forEach(token => {
+        if (cursor < token.start) {
+            html += escapeHtmlForCode(source.slice(cursor, token.start));
+        }
+        html += `<span class="code-${token.type}">${escapeHtmlForCode(token.text)}</span>`;
+        cursor = token.end;
+    });
+    if (cursor < source.length) {
+        html += escapeHtmlForCode(source.slice(cursor));
+    }
+    return html;
+}
+
+function enhanceCodeBlocks(container) {
+    if (!container) return;
+    container.querySelectorAll('pre').forEach(pre => {
+        pre.classList.add('code-block');
+    });
+    container.querySelectorAll('pre code').forEach(codeEl => {
+        if (!codeEl || codeEl.dataset.basicHighlighted === 'true') return;
+        const langClass = Array.from(codeEl.classList || []).find(cls => cls.startsWith('language-'));
+        const lang = langClass ? langClass.replace('language-', '') : '';
+        const original = codeEl.textContent || '';
+        codeEl.innerHTML = basicHighlightToHtml(original, lang);
+        codeEl.dataset.basicHighlighted = 'true';
+    });
+    container.querySelectorAll(':not(pre) > code').forEach(inlineCode => {
+        inlineCode.classList.add('inline-code');
+    });
 }
 
 /** Copie message unique (inchangé). */
