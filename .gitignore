@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.indexdir/
+venv/
+*.db
+analyse.txt
+Archive.zip
+06042025/
+data/
+10.txt
+20.txt
+100.txt
+head.txt
+tail.txt
+06042025/*
+06042025
