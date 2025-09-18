@@ -588,7 +588,9 @@ const CODE_LANGUAGE_ALIASES = {
     'c++': 'c',
     html: 'html',
     xml: 'html',
-    css: 'css'
+    css: 'css',
+    tex: 'latex',
+    plaintex: 'latex'
 };
 
 const CODE_KEYWORDS = {
@@ -597,6 +599,7 @@ const CODE_KEYWORDS = {
     c: ['int','float','double','char','void','long','short','unsigned','signed','return','if','else','for','while','do','switch','case','break','continue','struct','typedef','enum','sizeof','static','const','volatile','extern','NULL'],
     css: ['@media','@import','@font-face','@keyframes','from','to','var'],
     html: ['html','head','body','title','meta','link','script','style','div','span','section','article','nav','header','footer','main','aside','ul','ol','li','table','thead','tbody','tr','td','th','form','input','button','label','textarea','canvas','svg','img','a'],
+    latex: [],
     default: ['return','if','else','for','while','class','function','def','true','false','null','None','True','False']
 };
 
@@ -637,6 +640,12 @@ function getHighlightPatterns(language) {
         patterns.push({ regex: /\/\*[\s\S]*?\*\//g, type: 'comment', priority: 50 });
     } else if (lang === 'html') {
         patterns.push({ regex: /<!--[\s\S]*?-->/g, type: 'comment', priority: 50 });
+    } else if (lang === 'latex') {
+        patterns.push({ regex: /%.*$/gm, type: 'comment', priority: 55 });
+        patterns.push({ regex: /\\[a-zA-Z@]+\*?/g, type: 'command', priority: 52 });
+        patterns.push({ regex: /\\[^\s]/g, type: 'command', priority: 51 });
+        patterns.push({ regex: /[{}]/g, type: 'brace', priority: 26 });
+        patterns.push({ regex: /[\[\]]/g, type: 'optional-delim', priority: 26 });
     }
 
     if (lang === 'c') {

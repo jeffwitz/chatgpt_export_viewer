@@ -261,6 +261,9 @@ body {
 .code-attr { color: #f07178; }
 .code-entity { color: #7fdbca; }
 .code-property { color: #89ddff; }
+.code-command { color: #82aaff; }
+.code-brace { color: #f6ad55; }
+.code-optional-delim { color: #a3be8c; }
 
 .message-content img {
     max-width: 100%;
