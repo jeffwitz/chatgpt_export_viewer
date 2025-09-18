@@ -28,6 +28,12 @@ FLASK_APP=app python -m flask run --no-debugger --no-reload --host 0.0.0.0 --por
 
 Placez vos dossiers d’export (ceux qui contiennent `conversations.json` et `chat.html`) à la racine du projet : ils sont détectés automatiquement.
 
+## Importer un export ZIP
+- Dans l’interface, utilisez le formulaire « Importer un export ZIP » pour téléverser l’archive reçue depuis ChatGPT.
+- Indiquez le chemin de destination : il peut pointer vers n’importe quel support monté (SSD externe, NAS, etc.).
+- L’application décompresse l’archive, crée le dossier d’export, l’indexe en SQLite et l’ajoute automatiquement à la liste.
+- Vous pouvez laisser le champ « Nom du dossier » vide pour qu’il soit déduit du nom du fichier ZIP.
+
 ## Documentation Sphinx
 
 Une documentation développeur est disponible dans `docs/`. Pour la construire :
