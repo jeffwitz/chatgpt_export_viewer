@@ -22,7 +22,7 @@ pip install -r requirements.txt  # ou installer Flask/ijson/python-magic si beso
 
 ## Lancement du serveur
 ```bash
-source ~/Code/venv/deepseek/bin/activate  # ou votre environnement
+source .venv/bin/activate  # ou activez l'environnement de votre choix
 FLASK_APP=app python -m flask run --no-debugger --no-reload --host 0.0.0.0 --port 5001
 ```
 
@@ -33,7 +33,7 @@ Placez vos dossiers d’export (ceux qui contiennent `conversations.json` et `ch
 Une documentation développeur est disponible dans `docs/`. Pour la construire :
 
 ```bash
-source ~/Code/venv/deepseek/bin/activate
+source .venv/bin/activate
 pip install -r requirements-dev.txt  # inclut sphinx-rtd-theme
 cd docs
 sphinx-build -b html . _build/html
@@ -51,7 +51,7 @@ et le rendu front-end (maths, assets, recherche).
 ### Scripts utilitaires
 Un script CLI est fourni pour (ré)ingérer un export manuellement :
 ```bash
-source ~/Code/venv/deepseek/bin/activate
+source .venv/bin/activate
 python scripts/refresh_export.py 06042025
 ```
 
@@ -66,7 +66,7 @@ python scripts/refresh_export.py 06042025
 
 ## Tests rapides
 ```bash
-source ~/Code/venv/deepseek/bin/activate
+source .venv/bin/activate
 python -m compileall app.py app_core
 python -m pytest  # si vous ajoutez des tests
 ```
