@@ -139,6 +139,33 @@
             </select>
         </div>
 
+        <button type="button" id="toggle-upload-form" class="btn btn-outline-secondary btn-sm" style="margin-bottom:10px;">Importer un export ZIP</button>
+
+        <div id="upload-export-panel" class="folder-selector-container d-none">
+            <h6 style="margin:0 0 10px 0;">Importer un export ZIP</h6>
+            <form id="upload-export-form" enctype="multipart/form-data">
+                <div class="mb-2">
+                    <label for="export-zip-input" class="form-label">Fichier ZIP</label>
+                    <input type="file" class="form-control form-control-sm" id="export-zip-input" accept=".zip" required>
+                </div>
+                <div class="mb-2">
+                    <label for="export-folder-name" class="form-label">Nom du dossier</label>
+                    <input type="text" class="form-control form-control-sm" id="export-folder-name" placeholder="Auto si vide">
+                </div>
+                <div class="mb-2">
+                    <label for="export-destination" class="form-label">Chemin de destination</label>
+                    <input type="text" class="form-control form-control-sm" id="export-destination" list="destination-suggestions" placeholder="/chemin/vers/export" required>
+                    <datalist id="destination-suggestions">
+                        {% for suggestion in destination_suggestions %}
+                        <option value="{{ suggestion | e }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <button type="submit" id="upload-export-button" class="btn btn-primary btn-sm" style="width:100%;">Importer</button>
+                <div id="upload-export-status" style="font-size:0.8em;margin-top:8px;color:#6c757d;"></div>
+            </form>
+        </div>
+
         <!-- Recherche -->
         {# Le placeholder indique maintenant que la recherche se fait partout #}
         <input type="search" id="search-box" placeholder="Rechercher titre ou contenu..." style="background:#fff !important;color:#212529 !important;z-index:10;position:relative;"> 

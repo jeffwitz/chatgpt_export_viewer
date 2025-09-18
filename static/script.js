@@ -20,6 +20,14 @@ const filterAssetsCheckbox = document.getElementById('filter-assets-checkbox');
 const filterAudioCheckbox = document.getElementById('filter-audio-checkbox');
 const filterImagesCheckbox = document.getElementById('filter-images-checkbox');
 const searchStatus = document.getElementById('search-status'); // Pour afficher statut/résultats recherche
+const uploadExportForm = document.getElementById('upload-export-form');
+const uploadExportStatus = document.getElementById('upload-export-status');
+const uploadExportButton = document.getElementById('upload-export-button');
+const uploadExportFileInput = document.getElementById('export-zip-input');
+const uploadExportFolderInput = document.getElementById('export-folder-name');
+const uploadExportDestinationInput = document.getElementById('export-destination');
+const uploadExportPanel = document.getElementById('upload-export-panel');
+const toggleUploadFormButton = document.getElementById('toggle-upload-form');
 
 const AUDIO_MIME_KEYWORDS = ['mpeg layer 3', 'wave audio', 'ogg data', 'flac audio', 'aac audio'];
 const IMAGE_MIME_KEYWORDS = ['png image data', 'jpeg image data', 'gif image data', 'webp image data', 'svg xml', 'bitmap'];
@@ -51,6 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filterImagesCheckbox) { filterImagesCheckbox.addEventListener('change', updateDisplayedConversationList); }
     else { console.error("Image filter checkbox not found."); }
     document.addEventListener('keydown', handleKeyboardNavigation);
+    if (uploadExportForm) { uploadExportForm.addEventListener('submit', handleUploadExportSubmit); }
+    if (uploadExportFileInput && uploadExportFolderInput) {
+        uploadExportFileInput.addEventListener('change', populateFolderNameSuggestion);
+    }
+    if (toggleUploadFormButton) { toggleUploadFormButton.addEventListener('click', toggleUploadFormVisibility); }
     // Listener pour "Copier Tout" attaché dynamiquement dans displayConversation
 
     // Initial Load Logic
@@ -174,6 +187,33 @@ function setSearchStatus(message) {
     if (!searchStatus) return;
     searchStatus.textContent = message || '';
     searchStatus.style.display = message ? 'block' : 'none';
+}
+
+function setUploadStatus(message) {
+    if (!uploadExportStatus) return;
+    uploadExportStatus.textContent = message || '';
+    uploadExportStatus.style.color = message && message.startsWith('Erreur') ? '#c92a2a' : '#6c757d';
+}
+
+function toggleUploadFormVisibility() {
+    if (!uploadExportPanel || !toggleUploadFormButton) return;
+    const hidden = uploadExportPanel.classList.contains('d-none');
+    if (hidden) {
+        uploadExportPanel.classList.remove('d-none');
+        toggleUploadFormButton.textContent = 'Fermer l’import';
+        toggleUploadFormButton.classList.remove('btn-outline-secondary');
+        toggleUploadFormButton.classList.add('btn-secondary');
+        if (uploadExportFileInput) {
+            uploadExportFileInput.focus({ preventScroll: true });
+        }
+    } else {
+        uploadExportPanel.classList.add('d-none');
+        toggleUploadFormButton.textContent = 'Importer un export ZIP';
+        toggleUploadFormButton.classList.add('btn-outline-secondary');
+        toggleUploadFormButton.classList.remove('btn-secondary');
+        if (uploadExportForm) uploadExportForm.reset();
+        setUploadStatus('');
+    }
 }
 
 /** Ajoute les informations calculées (has_asset, has_audio, id) aux conversations. */
@@ -745,6 +785,72 @@ function enhanceCodeBlocks(container) {
     container.querySelectorAll(':not(pre) > code').forEach(inlineCode => {
         inlineCode.classList.add('inline-code');
     });
+}
+
+function populateFolderNameSuggestion() {
+    setUploadStatus('');
+    if (!uploadExportFileInput?.files?.length || !uploadExportFolderInput) return;
+    if (uploadExportFolderInput.value && uploadExportFolderInput.value.trim()) return;
+    const file = uploadExportFileInput.files[0];
+    if (!file || !file.name) return;
+    const suggestion = file.name.replace(/\.zip$/i, '').replace(/[^A-Za-z0-9._-]+/g, '-');
+    if (suggestion) {
+        uploadExportFolderInput.value = suggestion;
+    }
+}
+
+async function handleUploadExportSubmit(event) {
+    event.preventDefault();
+    setUploadStatus('');
+    if (!uploadExportFileInput?.files?.length) {
+        setUploadStatus('Erreur: sélectionnez un fichier ZIP.');
+        return;
+    }
+    const destination = (uploadExportDestinationInput?.value || '').trim();
+    if (!destination) {
+        setUploadStatus('Erreur: indiquez un chemin de destination.');
+        return;
+    }
+    const folderName = (uploadExportFolderInput?.value || '').trim();
+    const file = uploadExportFileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('destination_root', destination);
+    if (folderName) {
+        formData.append('folder_name', folderName);
+    }
+
+    setUploadStatus('Import en cours...');
+    if (uploadExportButton) {
+        uploadExportButton.disabled = true;
+    }
+    try {
+        const response = await fetch('/upload_export', {
+            method: 'POST',
+            body: formData
+        });
+        let payload = {};
+        try {
+            payload = await response.json();
+        } catch (err) {
+            payload = {};
+        }
+        if (!response.ok) {
+            const msg = payload.error || 'Import échoué.';
+            throw new Error(msg);
+        }
+        setUploadStatus('Import réussi. Rechargement...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Erreur inconnue.';
+        setUploadStatus(`Erreur: ${message}`);
+    } finally {
+        if (uploadExportButton) {
+            uploadExportButton.disabled = false;
+        }
+    }
 }
 
 /** Copie message unique (inchangé). */
