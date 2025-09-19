@@ -6,7 +6,8 @@ import os
 import shutil
 import tempfile
 import zipfile
-from typing import Dict, List
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 from flask import (
     Flask,
@@ -148,6 +149,35 @@ def _destination_suggestions() -> List[str]:
     return sorted({s for s in suggestions if s})
 
 
+def _parse_datetime_param(value: str | None) -> Optional[float]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+
+    def _normalise(raw: str) -> str:
+        normalised = raw
+        if normalised.endswith("Z"):
+            normalised = normalised[:-1] + "+00:00"
+        return normalised
+
+    candidates = [_normalise(cleaned)]
+    if "T" not in cleaned:
+        candidates.append(_normalise(f"{cleaned}T00:00:00"))
+
+    for candidate in candidates:
+        try:
+            dt = datetime.fromisoformat(candidate)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.timestamp()
+        except ValueError:
+            continue
+
+    raise ValueError(f"Invalid ISO datetime: {value}")
+
+
 def _safe_extract_zip(archive: zipfile.ZipFile, destination: str) -> None:
     for member in archive.infolist():
         member_path = member.filename
@@ -262,6 +292,12 @@ def search_conversations():
     if not query_string:
         return jsonify({"error": "Missing query"}), 400
 
+    try:
+        start_ts = _parse_datetime_param(request.args.get("start"))
+        end_ts = _parse_datetime_param(request.args.get("end"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     print(f"\n{'=' * 10} Processing SEARCH: Folder={folder_name}, Query='{query_string}' {'=' * 10}")
 
     try:
@@ -272,6 +308,8 @@ def search_conversations():
                 export_id,
                 query_string,
                 fts_enabled=FTS_ENABLED,
+                start_ts=start_ts,
+                end_ts=end_ts,
             )
     except ingest_core.ExportNotFoundError:
         return jsonify({"error": "Folder not found"}), 404

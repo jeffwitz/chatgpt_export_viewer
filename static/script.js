@@ -20,6 +20,10 @@ const filterAssetsCheckbox = document.getElementById('filter-assets-checkbox');
 const filterAudioCheckbox = document.getElementById('filter-audio-checkbox');
 const filterImagesCheckbox = document.getElementById('filter-images-checkbox');
 const searchStatus = document.getElementById('search-status'); // Displays search status/results
+const searchStartInput = document.getElementById('search-start');
+const searchEndInput = document.getElementById('search-end');
+const searchRangePanel = document.getElementById('search-range-panel');
+const toggleDateFiltersButton = document.getElementById('toggle-date-filters');
 const uploadExportForm = document.getElementById('upload-export-form');
 const uploadExportStatus = document.getElementById('upload-export-status');
 const uploadExportButton = document.getElementById('upload-export-button');
@@ -64,7 +68,15 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadExportFileInput.addEventListener('change', populateFolderNameSuggestion);
     }
     if (toggleUploadFormButton) { toggleUploadFormButton.addEventListener('click', toggleUploadFormVisibility); }
+    if (toggleDateFiltersButton && searchRangePanel) {
+        toggleDateFiltersButton.addEventListener('click', toggleDateRangeVisibility);
+        const isExpanded = !searchRangePanel.classList.contains('d-none');
+        toggleDateFiltersButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        toggleDateFiltersButton.textContent = isExpanded ? 'Hide date range' : 'Date range';
+    }
     // The "Copy all" listener is attached dynamically in displayConversation
+    if (searchStartInput) { searchStartInput.addEventListener('change', handleSearchRangeChange); }
+    if (searchEndInput) { searchEndInput.addEventListener('change', handleSearchRangeChange); }
 
     // Initial Load Logic
     if (folderSelector && folderSelector.options.length > 1) {
@@ -80,6 +92,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function cleanString(inputText) {
     if (typeof inputText !== 'string') return inputText;
     return inputText.replace(badCharsRegex, '');
+}
+
+function formatTimestampSeconds(timestampSeconds) {
+    if (typeof timestampSeconds !== 'number' || !Number.isFinite(timestampSeconds)) return null;
+    const date = new Date(timestampSeconds * 1000);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString();
+}
+
+function normaliseDateInputValue(value) {
+    if (!value || typeof value !== 'string') return '';
+    return value.trim();
 }
 
 /** Copy text to the clipboard and give visual feedback on a button. */
@@ -167,6 +191,8 @@ function resetUI() {
     conversationList.innerHTML = '';
     conversationView.innerHTML = '<h2>Select a conversation</h2><p>Click a title.</p><div id="conversation-content"></div>';
     if (searchBox) searchBox.value = '';
+    if (searchStartInput) searchStartInput.value = '';
+    if (searchEndInput) searchEndInput.value = '';
     if (filterAssetsCheckbox) filterAssetsCheckbox.checked = false;
     if (filterAudioCheckbox) filterAudioCheckbox.checked = false;
     if (filterImagesCheckbox) filterImagesCheckbox.checked = false;
@@ -213,6 +239,27 @@ function toggleUploadFormVisibility() {
         toggleUploadFormButton.classList.remove('btn-secondary');
         if (uploadExportForm) uploadExportForm.reset();
         setUploadStatus('');
+    }
+}
+
+function toggleDateRangeVisibility() {
+    if (!searchRangePanel || !toggleDateFiltersButton) return;
+    const hidden = searchRangePanel.classList.contains('d-none');
+    if (hidden) {
+        searchRangePanel.classList.remove('d-none');
+        toggleDateFiltersButton.textContent = 'Hide date range';
+        toggleDateFiltersButton.setAttribute('aria-expanded', 'true');
+        if (searchStartInput && typeof searchStartInput.focus === 'function') {
+            try {
+                searchStartInput.focus({ preventScroll: true });
+            } catch (err) {
+                searchStartInput.focus();
+            }
+        }
+    } else {
+        searchRangePanel.classList.add('d-none');
+        toggleDateFiltersButton.textContent = 'Date range';
+        toggleDateFiltersButton.setAttribute('aria-expanded', 'false');
     }
 }
 
@@ -370,33 +417,61 @@ function updateDisplayedConversationList() {
 
 
 /** Handle typing in the search box: debounce remote search or revert to the local list. */
-function handleSearchInput() {
+function scheduleSearch() {
     clearTimeout(searchDebounceTimeout);
     const query = searchBox.value.trim();
     const folderName = folderSelector.value;
     if (!folderName) return;
 
-    if (!query) { // Empty search term
+    const startValue = normaliseDateInputValue(searchStartInput?.value);
+    const endValue = normaliseDateInputValue(searchEndInput?.value);
+    if (startValue && endValue) {
+        const startDate = new Date(startValue);
+        const endDate = new Date(endValue);
+        if (startDate > endDate) {
+            setSearchStatus('Invalid date range: start must be before end.');
+            return;
+        }
+    }
+
+    if (!query) {
         console.log("Search cleared, running updateDisplayedConversationList.");
-        updateDisplayedConversationList(); // Restore the default list
+        updateDisplayedConversationList();
         return;
     }
-    // Trigger remote search after the debounce delay
+
     setSearchStatus('Searching...');
     searchDebounceTimeout = setTimeout(() => {
         performSearch(folderName, query);
     }, DEBOUNCE_DELAY);
 }
 
+function handleSearchInput() {
+    scheduleSearch();
+}
+
+function handleSearchRangeChange() {
+    scheduleSearch();
+}
+
 /** Perform the full-text search via the /search API. */
 async function performSearch(folderName, query) {
     console.log(`Performing full-text search in '${folderName}' for: '${query}'`);
     setLoading(true);
+    const startValue = normaliseDateInputValue(searchStartInput?.value);
+    const endValue = normaliseDateInputValue(searchEndInput?.value);
     setSearchStatus(`Searching for "${query}"...`);
     conversationList.innerHTML = '';
 
     try {
-        const response = await fetch(`/search?folder_name=${encodeURIComponent(folderName)}&query=${encodeURIComponent(query)}`);
+        const params = new URLSearchParams({
+            folder_name: folderName,
+            query
+        });
+        if (startValue) params.set('start', startValue);
+        if (endValue) params.set('end', endValue);
+
+        const response = await fetch(`/search?${params.toString()}`);
         console.log("Search API Response Status:", response.status);
         if (!response.ok) { const errData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` })); console.error("Search API Error:", errData); throw new Error(errData.error || `Search error ${response.status}`); }
         const results = await response.json();
@@ -404,7 +479,17 @@ async function performSearch(folderName, query) {
         console.log("Is results an array?", Array.isArray(results));
 
         displaySearchResults(results);
-        setSearchStatus(`${results.length} result(s) for "${query}" (content)`);
+        const rangeParts = [];
+        if (startValue) {
+            const date = new Date(startValue);
+            if (!Number.isNaN(date.getTime())) rangeParts.push(`from ${date.toLocaleString()}`);
+        }
+        if (endValue) {
+            const date = new Date(endValue);
+            if (!Number.isNaN(date.getTime())) rangeParts.push(`to ${date.toLocaleString()}`);
+        }
+        const rangeSuffix = rangeParts.length ? ` | ${rangeParts.join(' ')}` : '';
+        setSearchStatus(`${results.length} result(s) for "${query}" (content)${rangeSuffix}`);
 
     } catch (error) {
         console.error('Error during search fetch/processing:', error);
@@ -493,11 +578,36 @@ function displayConversation(conversationId) {
 
     // Boucle d'affichage des messages
     messages.forEach((msg, index) => {
-        const messageElement = document.createElement('div'); messageElement.classList.add('message', msg.role);
-        // Auteur + Bouton Copie
-        const authorElement = document.createElement('div'); authorElement.classList.add('message-author'); authorElement.textContent = msg.role;
-        const copyButton = document.createElement('button'); copyButton.className = 'copy-button'; copyButton.title = 'Copy message (MD)'; copyButton.innerHTML = '<i class="fas fa-clipboard"></i>';
-        copyButton.addEventListener('click', (e) => handleCopySingleMessage(e.currentTarget, msg)); authorElement.appendChild(copyButton); messageElement.appendChild(authorElement);
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', msg.role || 'unknown');
+
+        const roleElement = document.createElement('div');
+        roleElement.classList.add('message-role');
+        roleElement.textContent = (msg.role || 'unknown').toUpperCase();
+        messageElement.appendChild(roleElement);
+
+        const metaElement = document.createElement('div');
+        metaElement.classList.add('message-meta');
+        const timeSpan = document.createElement('span');
+        if (msg.createdAtDisplay) {
+            timeSpan.textContent = msg.createdAtDisplay;
+            if (msg.createdAtISO) {
+                timeSpan.setAttribute('data-timestamp', msg.createdAtISO);
+            }
+        } else {
+            timeSpan.textContent = '';
+        }
+        metaElement.appendChild(timeSpan);
+
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.type = 'button';
+        copyButton.title = 'Copier ce message en Markdown';
+        copyButton.setAttribute('aria-label', 'Copier ce message en Markdown');
+        copyButton.innerHTML = '<i class="fas fa-clipboard"></i> Copier';
+        copyButton.addEventListener('click', (e) => handleCopySingleMessage(e.currentTarget, msg));
+        metaElement.appendChild(copyButton);
+        messageElement.appendChild(metaElement);
         // Contenu
         const contentElement = document.createElement('div'); contentElement.classList.add('message-content');
         if (msg.parts?.length) {
@@ -587,7 +697,19 @@ function getMessagesFromMapping(mapping) {
             const role = msg.author?.role; const isUserSys = msg.metadata?.is_user_system_message === true;
             if (role === 'user' || role === 'assistant' || role === 'tool' || (role === 'system' && isUserSys)) {
                  let parts = msg.content.parts; if ((!Array.isArray(parts) || parts.length === 0) && typeof msg.content.text === 'string') parts = [msg.content.text];
-                 if (Array.isArray(parts) && parts.length > 0) { messages.push({ role: role, parts: parts }); /* console.log(`      -> ADDED MESSAGE node ${nodeId}`); */ }
+                 if (Array.isArray(parts) && parts.length > 0) {
+                     let createdAt = null;
+                     if (typeof msg.create_time === 'number' && Number.isFinite(msg.create_time)) {
+                         createdAt = msg.create_time;
+                     } else if (typeof msg.create_time === 'string' && msg.create_time.trim()) {
+                         const parsedTs = Number(msg.create_time);
+                         if (Number.isFinite(parsedTs)) createdAt = parsedTs;
+                     }
+                     const createdAtDisplay = createdAt !== null ? formatTimestampSeconds(createdAt) : null;
+                     const createdAtISO = createdAt !== null ? new Date(createdAt * 1000).toISOString() : null;
+                     messages.push({ role: role, parts: parts, createdAt, createdAtDisplay, createdAtISO });
+                     /* console.log(`      -> ADDED MESSAGE node ${nodeId}`); */
+                 }
             }
         }
         if (Array.isArray(node.children)) { node.children.sort().forEach(childId => dfs(childId)); }

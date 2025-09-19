@@ -465,6 +465,31 @@ def conversation_has_audio(
     return False
 
 
+def conversation_time_bounds(conversation: dict) -> Tuple[Optional[float], Optional[float]]:
+    """Return the earliest and latest ``create_time`` values within a conversation."""
+
+    mapping = conversation.get("mapping") if isinstance(conversation, dict) else None
+    if not isinstance(mapping, dict):
+        return None, None
+
+    timestamps: List[float] = []
+
+    for node in mapping.values():
+        if not isinstance(node, dict):
+            continue
+        message = node.get("message")
+        if not isinstance(message, dict):
+            continue
+        raw_timestamp = message.get("create_time")
+        if isinstance(raw_timestamp, (int, float)):
+            timestamps.append(float(raw_timestamp))
+
+    if not timestamps:
+        return None, None
+
+    return min(timestamps), max(timestamps)
+
+
 def collect_export_data(export_folder_path: str) -> ExportData:
     """Reproduce the legacy steps to gather export information."""
 

@@ -276,6 +276,12 @@ body {
     align-items: center;
 }
 
+.message .message-meta span {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 8px;
+}
+
 .message .copy-button {
     background: none;
     border: none;

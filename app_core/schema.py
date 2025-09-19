@@ -18,7 +18,7 @@ CREATE_TABLES = (
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS conversations (
+CREATE TABLE IF NOT EXISTS conversations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         export_id INTEGER NOT NULL REFERENCES exports(id) ON DELETE CASCADE,
         conversation_id TEXT NOT NULL,
@@ -27,6 +27,8 @@ CREATE_TABLES = (
         raw_json TEXT NOT NULL,
         has_asset INTEGER NOT NULL DEFAULT 0,
         has_audio INTEGER NOT NULL DEFAULT 0,
+        first_message_time REAL,
+        last_message_time REAL,
         UNIQUE(export_id, conversation_id)
     );
     """,
@@ -57,6 +59,8 @@ def ensure_schema(conn: sqlite3.Connection) -> Dict[str, bool]:
     for statement in CREATE_INDEXES:
         conn.execute(statement)
 
+    _ensure_conversation_time_columns(conn)
+
     fts_enabled = True
     try:
         conn.execute("SELECT count(*) FROM conversation_search LIMIT 1")
@@ -68,3 +72,15 @@ def ensure_schema(conn: sqlite3.Connection) -> Dict[str, bool]:
 
     return {"fts_enabled": fts_enabled}
 
+
+def _ensure_conversation_time_columns(conn: sqlite3.Connection) -> None:
+    """Add timestamp columns to `conversations` if missing."""
+
+    columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(conversations)")
+    }
+    if "first_message_time" not in columns:
+        conn.execute("ALTER TABLE conversations ADD COLUMN first_message_time REAL")
+    if "last_message_time" not in columns:
+        conn.execute("ALTER TABLE conversations ADD COLUMN last_message_time REAL")

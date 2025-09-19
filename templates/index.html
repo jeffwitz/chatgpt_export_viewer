@@ -37,9 +37,14 @@
         }
 
         /* ----- Search box and status styles ----- */
+        .search-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
         #search-box {
-             /* Existing search bar styling */
-             margin-bottom: 5px; /* Space before the status message */
+             flex: 1 1 auto;
         }
         #search-status {
             /* Styling for the status message under the search bar */
@@ -53,6 +58,30 @@
             font-style: italic; /* Light emphasis */
         }
         /* ----- End search styles ----- */
+
+
+        .search-range {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            font-size: 0.85em;
+        }
+
+        .search-range.d-none {
+            display: none;
+        }
+
+        .search-range label {
+            margin-right: 4px;
+            margin-bottom: 0;
+            font-weight: 500;
+        }
+
+        .search-range input[type="datetime-local"] {
+            min-width: 0;
+        }
 
 
         /* Filters */
@@ -168,9 +197,19 @@
 
         <!-- Search -->
         {# Placeholder reminds that the query spans title and content #}
-        <input type="search" id="search-box" placeholder="Search title or content..." style="background:#fff !important;color:#212529 !important;z-index:10;position:relative;"> 
+        <div class="search-controls">
+            <input type="search" id="search-box" placeholder="Search title or content..." style="background:#fff !important;color:#212529 !important;z-index:10;position:relative;">
+            <button type="button" id="toggle-date-filters" class="btn btn-link btn-sm">Date range</button>
+        </div>
         <!-- Search status -->
         <div id="search-status"></div> {# Filled and toggled by JavaScript #}
+
+        <div id="search-range-panel" class="search-range d-none">
+            <label for="search-start">From</label>
+            <input type="date" id="search-start" class="form-control form-control-sm" placeholder="Start date">
+            <label for="search-end">To</label>
+            <input type="date" id="search-end" class="form-control form-control-sm" placeholder="End date">
+        </div>
 
 
         <!-- Filters -->

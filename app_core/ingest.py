@@ -5,7 +5,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import sqlite3
 
@@ -14,6 +14,7 @@ from .parsing import (
     collect_export_data,
     conversation_has_asset,
     conversation_has_audio,
+    conversation_time_bounds,
     extract_text_from_conversation,
 )
 
@@ -143,7 +144,7 @@ def _bulk_insert_conversations(
     *,
     fts_enabled: bool,
 ) -> None:
-    payload: List[Tuple[int, str, int, str, str, int, int]] = []
+    payload: List[Tuple[int, str, int, str, str, int, int, Optional[float], Optional[float]]] = []
     fts_rows: List[Tuple[int, str, str, str]] = []
 
     for sort_index, conversation in enumerate(export_data.conversations):
@@ -155,6 +156,7 @@ def _bulk_insert_conversations(
         title = conversation.get("title") if isinstance(conversation.get("title"), str) else None
         raw_json = json.dumps(conversation, ensure_ascii=False)
         has_asset, has_audio = _conversation_flags(conversation, export_data.asset_mapping, export_data.file_types)
+        first_ts, last_ts = conversation_time_bounds(conversation)
         payload.append((
             export_id,
             conversation_id,
@@ -163,6 +165,8 @@ def _bulk_insert_conversations(
             raw_json,
             has_asset,
             has_audio,
+            first_ts,
+            last_ts,
         ))
 
         text_content = extract_text_from_conversation(conversation)
@@ -178,8 +182,10 @@ def _bulk_insert_conversations(
             title,
             raw_json,
             has_asset,
-            has_audio
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            has_audio,
+            first_message_time,
+            last_message_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )
@@ -192,6 +198,42 @@ def _bulk_insert_conversations(
             """,
             fts_rows,
         )
+
+
+def _ensure_conversation_time_data(conn: sqlite3.Connection, export_id: int) -> None:
+    """Populate missing first/last message timestamps for stored conversations."""
+
+    cursor = conn.execute(
+        """
+        SELECT conversation_id, raw_json
+          FROM conversations
+         WHERE export_id = ?
+           AND (first_message_time IS NULL OR last_message_time IS NULL)
+        """,
+        (export_id,),
+    )
+
+    updates: List[Tuple[Optional[float], Optional[float], int, str]] = []
+    for row in cursor.fetchall():
+        try:
+            conversation = json.loads(row["raw_json"])
+        except (TypeError, json.JSONDecodeError):
+            continue
+        first_ts, last_ts = conversation_time_bounds(conversation)
+        updates.append((first_ts, last_ts, export_id, row["conversation_id"]))
+
+    if updates:
+        conn.executemany(
+            """
+            UPDATE conversations
+               SET first_message_time = ?,
+                   last_message_time = ?
+             WHERE export_id = ?
+               AND conversation_id = ?
+            """,
+            updates,
+        )
+        conn.commit()
 
 
 def _load_snapshot(conn: sqlite3.Connection, export_id: int) -> ExportSnapshot:
@@ -230,19 +272,38 @@ def search_conversations(
     query: str,
     *,
     fts_enabled: bool,
+    start_ts: Optional[float] = None,
+    end_ts: Optional[float] = None,
     limit: int = 100,
 ) -> List[Dict[str, str]]:
     if not fts_enabled:
         raise RuntimeError("Full-text search disabled (SQLite FTS5 unavailable)")
 
-    cursor = conn.execute(
-        """
-        SELECT conversation_id, title
-          FROM conversation_search
-         WHERE export_id = ? AND conversation_search MATCH ?
-         LIMIT ?
-        """,
-        (export_id, query, limit),
-    )
-    return [{"id": row["conversation_id"], "title": row["title"]} for row in cursor.fetchall()]
+    if start_ts is not None or end_ts is not None:
+        _ensure_conversation_time_data(conn, export_id)
 
+    sql = [
+        """
+        SELECT conversation_search.conversation_id, conversation_search.title
+          FROM conversation_search
+          JOIN conversations AS c
+            ON c.export_id = conversation_search.export_id
+           AND c.conversation_id = conversation_search.conversation_id
+         WHERE conversation_search.export_id = ?
+           AND conversation_search MATCH ?
+        """
+    ]
+    params: List[object] = [export_id, query]
+
+    if start_ts is not None:
+        sql.append("  AND c.first_message_time IS NOT NULL AND c.first_message_time >= ?")
+        params.append(start_ts)
+    if end_ts is not None:
+        sql.append("  AND c.last_message_time IS NOT NULL AND c.last_message_time <= ?")
+        params.append(end_ts)
+
+    sql.append("  LIMIT ?")
+    params.append(limit)
+
+    cursor = conn.execute("\n".join(sql), params)
+    return [{"id": row["conversation_id"], "title": row["title"]} for row in cursor.fetchall()]
