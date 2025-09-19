@@ -16,9 +16,9 @@ const conversationView = document.getElementById('conversation-view');
 const mainContent = document.getElementById('main-content');
 const loadingIndicator = document.getElementById('loading-indicator');
 const searchBox = document.getElementById('search-box');
-const filterAssetsCheckbox = document.getElementById('filter-assets-checkbox');
 const filterAudioCheckbox = document.getElementById('filter-audio-checkbox');
 const filterImagesCheckbox = document.getElementById('filter-images-checkbox');
+const filterToolsCheckbox = document.getElementById('filter-tools-checkbox');
 const searchStatus = document.getElementById('search-status'); // Displays search status/results
 const searchStartInput = document.getElementById('search-start');
 const searchEndInput = document.getElementById('search-end');
@@ -56,12 +56,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchBox) { searchBox.addEventListener('input', handleSearchInput); } // Debounced search input
     else { console.error("Search box element not found."); }
     // Filters trigger the list refresh directly
-    if (filterAssetsCheckbox) { filterAssetsCheckbox.addEventListener('change', updateDisplayedConversationList); }
-    else { console.error("Assets filter checkbox not found."); }
-    if (filterAudioCheckbox) { filterAudioCheckbox.addEventListener('change', updateDisplayedConversationList); }
+    if (filterAudioCheckbox) { filterAudioCheckbox.addEventListener('change', updateMediaFilters); }
     else { console.error("Audio filter checkbox not found."); }
-    if (filterImagesCheckbox) { filterImagesCheckbox.addEventListener('change', updateDisplayedConversationList); }
+    if (filterImagesCheckbox) { filterImagesCheckbox.addEventListener('change', updateMediaFilters); }
     else { console.error("Image filter checkbox not found."); }
+    if (filterToolsCheckbox) { filterToolsCheckbox.addEventListener('change', handleToolFilterChange); }
+    else { console.error("Tool filter checkbox not found."); }
     document.addEventListener('keydown', handleKeyboardNavigation);
     if (uploadExportForm) { uploadExportForm.addEventListener('submit', handleUploadExportSubmit); }
     if (uploadExportFileInput && uploadExportFolderInput) {
@@ -193,14 +193,21 @@ function resetUI() {
     if (searchBox) searchBox.value = '';
     if (searchStartInput) searchStartInput.value = '';
     if (searchEndInput) searchEndInput.value = '';
-    if (filterAssetsCheckbox) filterAssetsCheckbox.checked = false;
     if (filterAudioCheckbox) filterAudioCheckbox.checked = false;
     if (filterImagesCheckbox) filterImagesCheckbox.checked = false;
+    if (filterToolsCheckbox) filterToolsCheckbox.checked = true;
     currentFolderData = { conversations: [], asset_mapping: {}, file_types: {} };
     document.querySelectorAll('#conversation-list li.selected').forEach(i => i.classList.remove('selected'));
     setSearchStatus('');
     clearTimeout(searchDebounceTimeout);
     setLoading(false);
+}
+
+function handleToolFilterChange() {
+    const selected = conversationList?.querySelector('li.selected');
+    if (selected?.dataset?.conversationId) {
+        displayConversation(selected.dataset.conversationId);
+    }
 }
 
 /** Show or hide the global loading indicator. */
@@ -281,12 +288,25 @@ function preprocessConversationData() {
         conv.has_asset = conversationHasAsset(conv);
         conv.has_audio = conversationHasAudio(conv);
         conv.has_image = conversationHasImage(conv);
+        conv.has_tool = conversationHasTool(conv);
         let id = conv.conversation_id || conv.id;
         if (!id || typeof id !== 'string' || id.startsWith('invalid_')) { id = `genid_${index}`; }
         conv.id = id;
         if (!conv.id) { console.error(`preprocess: FATAL ID fail @ ${index}`); conv.id = `errid_${index}`; }
     });
     console.log("preprocess: Complete.");
+}
+
+function conversationHasTool(conversation) {
+    if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
+    for (const nodeId in conversation.mapping) {
+        const node = conversation.mapping[nodeId];
+        const role = node?.message?.author?.role;
+        if (role === 'tool') {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** Gather all parts that may reference assets for a mapping node. */
@@ -372,6 +392,9 @@ function appendConversationIcons(listItem, conversation) {
     if (conversation.has_asset && !conversation.has_image && !conversation.has_audio) {
         icons.push({ className: 'fas fa-photo-video', title: 'Media/File' });
     }
+    if (conversation.has_tool) {
+        icons.push({ className: 'fas fa-robot', title: 'Tool messages present' });
+    }
     icons.forEach(iconCfg => {
         listItem.appendChild(document.createTextNode(' '));
         const iconEl = document.createElement('i');
@@ -384,12 +407,24 @@ function appendConversationIcons(listItem, conversation) {
 }
 
 /** Refresh the displayed list based on title search and filter checkboxes. */
+function getMediaFilterState() {
+    const wantsAudio = !!(filterAudioCheckbox && filterAudioCheckbox.checked);
+    const wantsImages = !!(filterImagesCheckbox && filterImagesCheckbox.checked);
+    return { wantsAudio, wantsImages, hasFilter: wantsAudio || wantsImages };
+}
+
+function updateMediaFilters() {
+    updateDisplayedConversationList();
+    const selected = conversationList?.querySelector('li.selected');
+    if (selected?.dataset?.conversationId) {
+        displayConversation(selected.dataset.conversationId);
+    }
+}
+
 function updateDisplayedConversationList() {
     console.log("updateDisplayedConversationList: Based on title search and filters.");
     const searchTerm = searchBox.value.toLowerCase().trim(); // Title filter
-    const filterAssets = !!(filterAssetsCheckbox && filterAssetsCheckbox.checked);
-    const filterAudio = !!(filterAudioCheckbox && filterAudioCheckbox.checked);
-    const filterImages = !!(filterImagesCheckbox && filterImagesCheckbox.checked);
+    const mediaFilters = getMediaFilterState();
     conversationList.innerHTML = '';
     if (!searchTerm) setSearchStatus('');
 
@@ -398,10 +433,11 @@ function updateDisplayedConversationList() {
     const filtered = currentFolderData.conversations.filter(c => {
         if (typeof c !== 'object' || !c?.id) return false;
         const titleMatch = !searchTerm || (c.title && typeof c.title === 'string' && c.title.toLowerCase().includes(searchTerm));
-        const assetMatch = !filterAssets || c.has_asset;
-        const audioMatch = !filterAudio || c.has_audio;
-        const imageMatch = !filterImages || c.has_image;
-        return titleMatch && assetMatch && audioMatch && imageMatch;
+        const mediaMatch = !mediaFilters.hasFilter || (
+            (mediaFilters.wantsAudio && c.has_audio) ||
+            (mediaFilters.wantsImages && c.has_image)
+        );
+        return titleMatch && mediaMatch;
     });
 
     if (filtered.length > 0) {
@@ -417,10 +453,10 @@ function updateDisplayedConversationList() {
             appendConversationIcons(listItem, c);
             conversationList.appendChild(listItem);
         });
-        if (searchTerm || filterAssets || filterAudio || filterImages) setSearchStatus(`${filtered.length} result(s) for filters/title.`);
+        if (searchTerm || mediaFilters.hasFilter) setSearchStatus(`${filtered.length} result(s) with current filters.`);
     } else {
         if (searchTerm) conversationList.innerHTML = '<li class="empty-list">No title matches.</li>';
-        else if (filterAssets || filterAudio || filterImages) conversationList.innerHTML = '<li class="empty-list">No conversation matches these filters.</li>';
+        else if (mediaFilters.hasFilter) conversationList.innerHTML = '<li class="empty-list">No conversation matches these filters.</li>';
         else conversationList.innerHTML = '<li class="empty-list">No valid conversations.</li>';
     }
 }
@@ -558,10 +594,11 @@ function selectConversationItem(listItem) {
 /** Render the detailed content of a conversation. */
 function displayConversation(conversationId) {
     // Reset the view
-    conversationView.innerHTML = `<h2>Loading...</h2><div id="global-actions" style="display: none;"><button id="copy-all-button" title="Copy the entire conversation in Markdown format"><i class="fas fa-copy"></i> Copy all (Markdown)</button></div><div id="conversation-content"></div>`;
+    conversationView.innerHTML = `<h2>Loading...</h2><div id="global-actions" class="global-actions" style="display: none;"><button id="copy-all-button" class="btn-action" title="Copy the entire conversation in Markdown format"><i class=\"fas fa-copy\"></i><span>Copy all</span></button><button id="print-conversation-button" class="btn-action primary" title="Open a print-friendly view"><i class=\"fas fa-print\"></i><span>Print / PDF</span></button></div><div id="conversation-content"></div>`;
     const conversationContentContainer = document.getElementById('conversation-content');
     const globalActionsContainer = document.getElementById('global-actions');
     const copyAllButton = document.getElementById('copy-all-button');
+    const printConversationButton = document.getElementById('print-conversation-button');
 
     // Trouver la conversation
     const conversation = currentFolderData.conversations.find(c => c.id === conversationId);
@@ -575,9 +612,14 @@ function displayConversation(conversationId) {
     conversationView.querySelector('h2').textContent = conversation.title || '[Untitled]';
     globalActionsContainer.style.display = 'block';
     copyAllButton.onclick = null; copyAllButton.addEventListener('click', handleCopyAllMarkdown);
+    if (printConversationButton) {
+        printConversationButton.onclick = null;
+        printConversationButton.addEventListener('click', handleOpenPrintView);
+    }
 
     // Extrait les messages
     const messages = getMessagesFromMapping(conversation.mapping);
+    const allowToolMessages = filterToolsCheckbox?.checked !== false;
     if (!messages || messages.length === 0) {
         console.warn(`displayConversation: No messages from getMessagesFromMapping for ${conversationId}.`);
         conversationContentContainer.innerHTML = '<p><i>Empty conversation or content not available.</i></p>';
@@ -587,7 +629,11 @@ function displayConversation(conversationId) {
     console.log(`  Will display ${messages.length} messages.`);
 
     // Boucle d'affichage des messages
+    let visibleMessages = 0;
     messages.forEach((msg, index) => {
+        if (!allowToolMessages && msg.role === 'tool') {
+            return;
+        }
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', msg.role || 'unknown');
 
@@ -680,11 +726,19 @@ function displayConversation(conversationId) {
         enhanceCodeBlocks(contentElement);
         messageElement.appendChild(contentElement);
         conversationContentContainer.appendChild(messageElement);
+        visibleMessages += 1;
     }); // End of message loop
 
     // Trigger KaTeX
     try { if (window.renderMathInElement) { renderMathInElement(conversationContentContainer, { delimiters: [{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false},{left:"\\[",right:"\\]",display:true},{left:"\\(",right:"\\)",display:false}], throwOnError: false }); } } catch (e) { console.error("KaTeX Error:", e); }
     if (mainContent) { mainContent.scrollTop = 0; } // Scroll top
+
+    if (visibleMessages === 0) {
+        conversationContentContainer.innerHTML = '<p><i>All tool messages are hidden by the current filter.</i></p>';
+        if (globalActionsContainer) {
+            globalActionsContainer.style.display = 'none';
+        }
+    }
 }
 
 
@@ -794,25 +848,33 @@ function normalizeLanguageAlias(language) {
     return CODE_LANGUAGE_ALIASES[key] || key;
 }
 
-function getHighlightPatterns(language) {
-    const lang = normalizeLanguageAlias(language);
-    const patterns = [
-        { regex: /"(?:\\.|[^"\\])*"/g, type: 'string', priority: 40 },
-        { regex: /'(?:\\.|[^'\\])*'/g, type: 'string', priority: 40 },
-        { regex: /`(?:\\.|[^`\\])*`/g, type: 'string', priority: 40 },
-        { regex: /\b0x[0-9a-fA-F]+\b/g, type: 'number', priority: 25 },
-        { regex: /\b\d+(?:\.\d+)?\b/g, type: 'number', priority: 25 }
-    ];
+function looksLikeLatexSource(source) {
+    if (typeof source !== 'string') return false;
+    return /\\(?:begin|end|frac|left|right|text|mathit|mathrm|mathbf|mathbb|documentclass|usepackage|section|subsection)/.test(source);
+}
 
-    if (lang === 'python') {
+function getHighlightPatterns(language, source) {
+    const normalisedLang = normalizeLanguageAlias(language);
+    const effectiveLang = normalisedLang === 'latex' || (!normalisedLang && looksLikeLatexSource(source)) ? 'latex' : normalisedLang;
+    const patterns = [];
+
+    patterns.push({ regex: /"(?:\\.|[^"\\])*"/g, type: 'string', priority: 40 });
+    if (effectiveLang !== 'latex') {
+        patterns.push({ regex: /'(?:\\.|[^'\\])*'/g, type: 'string', priority: 40 });
+    }
+    patterns.push({ regex: /`(?:\\.|[^`\\])*`/g, type: 'string', priority: 40 });
+    patterns.push({ regex: /\b0x[0-9a-fA-F]+\b/g, type: 'number', priority: 25 });
+    patterns.push({ regex: /\b\d+(?:\.\d+)?\b/g, type: 'number', priority: 25 });
+
+    if (effectiveLang === 'python') {
         patterns.push({ regex: /(?<!["'])#.*$/gm, type: 'comment', priority: 50 });
         patterns.push({ regex: /("""|''')[\s\S]*?\1/g, type: 'string', priority: 45 });
-    } else if (lang === 'javascript' || lang === 'c' || lang === 'css') {
+    } else if (effectiveLang === 'javascript' || effectiveLang === 'c' || effectiveLang === 'css') {
         patterns.push({ regex: /\/\/.*$/gm, type: 'comment', priority: 50 });
         patterns.push({ regex: /\/\*[\s\S]*?\*\//g, type: 'comment', priority: 50 });
-    } else if (lang === 'html') {
+    } else if (effectiveLang === 'html') {
         patterns.push({ regex: /<!--[\s\S]*?-->/g, type: 'comment', priority: 50 });
-    } else if (lang === 'latex') {
+    } else if (effectiveLang === 'latex') {
         patterns.push({ regex: /%.*$/gm, type: 'comment', priority: 55 });
         patterns.push({ regex: /\\[a-zA-Z@]+\*?/g, type: 'command', priority: 52 });
         patterns.push({ regex: /\\[^\s]/g, type: 'command', priority: 51 });
@@ -820,22 +882,22 @@ function getHighlightPatterns(language) {
         patterns.push({ regex: /[\[\]]/g, type: 'optional-delim', priority: 26 });
     }
 
-    if (lang === 'c') {
+    if (effectiveLang === 'c') {
         patterns.push({ regex: /#[a-zA-Z_]\w*/g, type: 'keyword', priority: 32 });
     }
 
-    if (lang === 'css') {
+    if (effectiveLang === 'css') {
         patterns.push({ regex: /@[a-zA-Z-]+/g, type: 'keyword', priority: 32 });
         patterns.push({ regex: /(?:--)?[a-zA-Z][a-zA-Z0-9-]*(?=\s*:)/g, type: 'property', priority: 28 });
     }
 
-    if (lang === 'html') {
+    if (effectiveLang === 'html') {
         patterns.push({ regex: /<\/?[a-zA-Z][a-zA-Z0-9:-]*/g, type: 'tag', priority: 45 });
         patterns.push({ regex: /\b[a-zA-Z-:]+(?=\s*=)/g, type: 'attr', priority: 30 });
         patterns.push({ regex: /&[a-zA-Z0-9#]+;/g, type: 'entity', priority: 20 });
     }
 
-    const keywordList = CODE_KEYWORDS[lang] || CODE_KEYWORDS.default;
+    const keywordList = CODE_KEYWORDS[effectiveLang] || CODE_KEYWORDS.default;
     if (keywordList && keywordList.length) {
         const escapedList = keywordList.map(escapeRegex).join('|');
         if (escapedList) {
@@ -849,7 +911,7 @@ function getHighlightPatterns(language) {
 function basicHighlightToHtml(codeText, language) {
     const source = typeof codeText === 'string' ? codeText : String(codeText ?? '');
     if (!source) { return ''; }
-    const patterns = getHighlightPatterns(language);
+    const patterns = getHighlightPatterns(language, source);
     const tokens = [];
 
     patterns.forEach((pattern, idx) => {
@@ -995,8 +1057,74 @@ function handleCopySingleMessage(buttonElement, messageData) {
 function handleCopyAllMarkdown(event) {
     const li = conversationList.querySelector('li.selected'); if(!li?.dataset?.conversationId) return; const convId = li.dataset.conversationId; const conv = currentFolderData.conversations.find(c=>c.id===convId); if(!conv) return;
     let fullMd = `# ${conv.title||'Conversation'}\n\n`; const msgs = getMessagesFromMapping(conv.mapping);
-    if(msgs?.length) msgs.forEach(msg => { fullMd += `**${msg.role.toUpperCase()}**:\n\n`; let msgMd=''; if(msg.parts?.length) msgMd=msg.parts.map(getMarkdownForMessagePart).filter(m=>m).join('\n\n'); else if(msg.text) msgMd=getMarkdownForMessagePart(msg.text); fullMd += msgMd.trim() + '\n\n---\n\n'; });
+    const allowToolMessages = filterToolsCheckbox?.checked !== false;
+    if(msgs?.length) msgs.forEach(msg => {
+        if (!allowToolMessages && msg.role === 'tool') { return; }
+        fullMd += `**${msg.role.toUpperCase()}**:\n\n`;
+        let msgMd='';
+        if(msg.parts?.length) msgMd=msg.parts.map(getMarkdownForMessagePart).filter(m=>m).join('\n\n');
+        else if(msg.text) msgMd=getMarkdownForMessagePart(msg.text);
+        fullMd += msgMd.trim() + '\n\n---\n\n';
+    });
     else fullMd += "*[Empty]*"; copyTextToClipboard(fullMd.trim(), event.currentTarget);
+}
+
+function withScopedClassOnBody(className, callback) {
+    if (!document?.body) {
+        callback();
+        return;
+    }
+    document.body.classList.add(className);
+    const removeClass = () => document.body.classList.remove(className);
+
+    let cleanup = null;
+    if ('onafterprint' in window) {
+        const handler = () => {
+            window.removeEventListener('afterprint', handler);
+            removeClass();
+        };
+        window.addEventListener('afterprint', handler);
+        cleanup = () => window.removeEventListener('afterprint', handler);
+    } else if (window.matchMedia) {
+        const mediaQueryList = window.matchMedia('print');
+        const mqHandler = (event) => {
+            if (!event.matches) {
+                mediaQueryList.removeEventListener('change', mqHandler);
+                removeClass();
+            }
+        };
+        mediaQueryList.addEventListener('change', mqHandler);
+        cleanup = () => mediaQueryList.removeEventListener('change', mqHandler);
+    } else {
+        setTimeout(removeClass, 500);
+    }
+
+    try {
+        callback();
+    } catch (error) {
+        if (cleanup) {
+            cleanup();
+        }
+        removeClass();
+        throw error;
+    }
+}
+
+function handleOpenPrintView(event) {
+    const selected = conversationList?.querySelector('li.selected');
+    if (!selected?.dataset?.conversationId) {
+        alert('Select a conversation first.');
+        return;
+    }
+
+    if (!document?.body) {
+        window.print();
+        return;
+    }
+
+    withScopedClassOnBody('print-mode', () => {
+        window.print();
+    });
 }
 
 /** Keyboard navigation shortcuts. */

@@ -28,6 +28,13 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+body.print-mode {
+    display: block;
+    height: auto;
+    overflow: visible;
+    background-color: #ffffff;
+}
+
 /* Sidebar */
 #sidebar {
     width: 300px; /* Fixed width */
@@ -68,22 +75,34 @@ body {
 }
 
 /* Filter checkboxes */
+
+.filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-start;
+}
+
+
 .filter-option {
-    padding: 8px 0;
-    margin-bottom: 10px;
-    font-size: 0.9em;
-    color: #495057;
     display: flex;
     align-items: center;
+    justify-content: center;
+    padding: 4px 6px;
+    margin: 0;
+    color: #495057;
 }
 
 .filter-option input[type="checkbox"] {
-    margin-right: 8px;
+    margin-right: 6px;
     cursor: pointer;
 }
+
 .filter-option label {
     cursor: pointer;
     user-select: none; /* Prevent selecting label text */
+    font-size: 1.4em;
+    line-height: 1;
 }
 
 
@@ -139,6 +158,67 @@ body {
     font-size: 1.6em; /* Prominent heading */
     color: #343a40;
     line-height: 1.3;
+}
+
+.global-actions {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    flex-wrap: wrap;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #ced4da;
+    background: #ffffff;
+    color: #343a40;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn-action:hover {
+    background: #f8f9fa;
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-action i {
+    font-size: 1.05em;
+}
+
+.btn-action.primary {
+    background: #0d6efd;
+    color: #ffffff;
+    border-color: #0d6efd;
+}
+
+.global-actions .btn-action + .btn-action {
+    margin-left: 10px;
+}
+
+.btn-action.primary:hover {
+    background: #0b5ed7;
+    border-color: #0b5ed7;
+    color: #ffffff;
+}
+
+.btn-action.copied,
+.btn-action.copied:hover {
+    background: #198754;
+    border-color: #198754;
+    color: #ffffff;
+    cursor: default;
+    box-shadow: none;
 }
 
 #loading {
@@ -220,6 +300,16 @@ body {
     color: inherit;
     font-size: 0.95em;
     word-break: break-word;
+}
+.message .message-content h1,
+.message .message-content h2,
+.message .message-content h3,
+.message .message-content h4,
+.message .message-content h5,
+.message .message-content h6 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 1em 0 0.6em;
 }
 
 .message .message-content img {
@@ -396,4 +486,96 @@ body {
     .message {
         padding: 10px 14px;
     }
+}
+
+/* Print adjustments */
+@media print {
+    #sidebar,
+    #sidebar-toggle,
+    #sidebar-overlay,
+    #toggle-upload-form,
+    #upload-export-panel,
+    #global-actions,
+    .global-actions,
+    #folder-selector,
+    .search-controls,
+    .filter-options,
+    #loading-indicator,
+    #search-status,
+    #search-range-panel {
+        display: none !important;
+    }
+
+    body {
+        font-size: 12pt;
+    }
+
+    #main-content {
+        padding: 0;
+        margin: 0;
+        max-width: none;
+        width: 100%;
+        background: #ffffff;
+        box-shadow: none;
+    }
+
+    #conversation-view {
+        padding: 0;
+    }
+
+    #conversation-content {
+        margin: 0;
+    }
+
+    .message {
+        max-width: 100%;
+        margin: 0 0 18px 0;
+        box-shadow: none;
+        background: #ffffff;
+        border-color: #d0d7de;
+        page-break-inside: avoid;
+    }
+
+    .message.user,
+    .message.assistant,
+    .message.tool,
+    .message.system {
+        background: #ffffff !important;
+        color: #111827 !important;
+        border-style: solid;
+    }
+
+    .message.tool {
+        font-size: 0.9em;
+        font-style: italic;
+    }
+
+    .message .message-content pre {
+        background-color: #f5f7fb !important;
+        color: #111827 !important;
+        border-color: #d0d7de !important;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .message .message-content pre code {
+        color: inherit !important;
+    }
+
+    .message .message-content img {
+        page-break-inside: avoid;
+    }
+}
+
+body.print-mode #sidebar,
+body.print-mode #sidebar-toggle,
+body.print-mode #sidebar-overlay,
+body.print-mode #global-actions,
+body.print-mode .global-actions {
+    display: none !important;
+}
+
+body.print-mode #main-content {
+    padding: 0;
+    width: 100%;
 }

@@ -215,16 +215,16 @@
         <!-- Filters -->
         <div class="filter-options">
             <div class="filter-option">
-                <input type="checkbox" id="filter-assets-checkbox">
-                <label for="filter-assets-checkbox">With media/files</label>
+                <input type="checkbox" id="filter-images-checkbox" aria-label="Show conversations with images">
+                <label for="filter-images-checkbox" title="Images">🖼</label>
             </div>
             <div class="filter-option">
-                <input type="checkbox" id="filter-audio-checkbox">
-                <label for="filter-audio-checkbox">Audio only</label>
+                <input type="checkbox" id="filter-audio-checkbox" aria-label="Show conversations with audio">
+                <label for="filter-audio-checkbox" title="Audio">🎵</label>
             </div>
             <div class="filter-option">
-                <input type="checkbox" id="filter-images-checkbox">
-                <label for="filter-images-checkbox">Images only</label>
+                <input type="checkbox" id="filter-tools-checkbox" checked aria-label="Show tool messages">
+                <label for="filter-tools-checkbox" title="Tool messages">🔧</label>
             </div>
         </div>
 
@@ -245,9 +245,14 @@
         <div id="conversation-view">
              <!-- Title and global actions (handled by JS) -->
              <h2>Select a conversation</h2>
-             <div id="global-actions" style="display: none;">
-                 <button id="copy-all-button" title="Copy the entire conversation in Markdown format">
-                     <i class="fas fa-copy"></i> Copy all (Markdown)
+             <div id="global-actions" class="global-actions" style="display: none;">
+                 <button id="copy-all-button" class="btn-action" title="Copy the entire conversation in Markdown format">
+                     <i class="fas fa-copy"></i>
+                     <span>Copy all</span>
+                 </button>
+                 <button id="print-conversation-button" class="btn-action primary" title="Open a print-friendly view">
+                     <i class="fas fa-print"></i>
+                     <span>Print / PDF</span>
                  </button>
              </div>
              <!-- Initial message / content -->
