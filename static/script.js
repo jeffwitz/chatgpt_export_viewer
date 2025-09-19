@@ -668,7 +668,29 @@ function displayConversation(conversationId) {
         const contentElement = document.createElement('div'); contentElement.classList.add('message-content');
         if (msg.parts?.length) {
             msg.parts.forEach(part => {
-                if (typeof part === 'string') { const cleaned=cleanString(part); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
+                if (typeof part === 'string') {
+                    const cleaned = cleanString(part);
+                    if (!cleaned.trim()) { return; }
+                    const latexMatch = cleaned.match(/\\(?:documentclass|begin\{document\}|maketitle)/i);
+                    if (latexMatch && looksLikeLatexSource(cleaned)) {
+                        const splitIndex = latexMatch.index ?? 0;
+                        const prefix = cleaned.slice(0, splitIndex);
+                        const latexBlock = cleaned.slice(splitIndex);
+                        if (prefix.trim()) {
+                            contentElement.innerHTML += md.render(prefix);
+                        }
+                        if (latexBlock.trim()) {
+                            const pre = document.createElement('pre');
+                            const code = document.createElement('code');
+                            code.className = 'language-latex';
+                            code.innerHTML = basicHighlightToHtml(latexBlock, 'latex');
+                            pre.appendChild(code);
+                            contentElement.appendChild(pre);
+                        }
+                    } else {
+                        contentElement.innerHTML += md.render(cleaned);
+                    }
+                }
                 else if (part && typeof part === 'object') {
                     // --- Asset rendering block (revised) ---
                     if (part.asset_pointer && currentFolderData.asset_mapping) {
@@ -793,7 +815,27 @@ function getMarkdownForMessagePart(part) {
     else if (part && typeof part === 'object') {
         if (part.asset_pointer && currentFolderData.asset_mapping) { const fn = currentFolderData.asset_mapping[part.asset_pointer]; if (fn) { const safeFn = fn.replace(/[<>:"/\\|?*]/g, '_'); const type = currentFolderData.file_types?.[fn]; let i=0, a=0; if(type){const lt=type.toLowerCase();if(lt.startsWith('image/')||['png image data','jpeg image data'].some(k=>lt.includes(k)))i=1;else if(lt.startsWith('audio/')||['mpeg layer 3','wave audio'].some(k=>lt.includes(k)))a=1;} if(!i&&!a&&/\.(png|jpe?g|gif|webp|svg)$/i.test(fn))i=1;else if(!i&&!a&&/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(fn))a=1; if(i) return `![Image: ${fn}](${safeFn})`; if(a) return `[Audio: ${fn}](${safeFn})`; return `[File: ${fn}](${safeFn})`; } else return `*[Missing mapping: ${part.asset_pointer}]*`; }
         else if (part.content_type === 'code' && part.text) { const lang=part.language||''; return `\`\`\`${lang}\n${cleanString(part.text||'')}\n\`\`\``; }
-        else if (part.text && typeof part.text === 'string') { return cleanString(part.text).trim(); }
+        else if (part.text && typeof part.text === 'string') {
+            const text = cleanString(part.text).trim();
+            if (!text) return '';
+            if (looksLikeLatexSource(text)) {
+                const latexMatch = text.match(/\\(?:documentclass|begin\{document\}|maketitle)/i);
+                if (latexMatch && latexMatch.index > 0) {
+                    const prefix = text.slice(0, latexMatch.index).trim();
+                    const latexBlock = text.slice(latexMatch.index).trim();
+                    const parts = [];
+                    if (prefix) {
+                        parts.push(prefix);
+                    }
+                    if (latexBlock) {
+                        parts.push(`\`\`\`latex\n${latexBlock}\n\`\`\``);
+                    }
+                    return parts.join('\n\n');
+                }
+                return `\`\`\`latex\n${text}\n\`\`\``;
+            }
+            return text;
+        }
         else return `*[Unhandled object content]*`;
     } return '';
 }
