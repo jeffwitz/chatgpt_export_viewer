@@ -15,3 +15,5 @@ head.txt
 tail.txt
 06042025/*
 06042025
+app_data/
+*.pdf

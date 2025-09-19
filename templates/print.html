@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }} – Printable transcript</title>
+    <link rel="stylesheet" href="{{ url_for('serve_static', filename='style.css') }}">
+    <style>
+        :root { color-scheme: light; }
+        body {
+            background: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 32px;
+            font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+        #print-dismiss {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #0f172a;
+            color: #f8fafc;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.2);
+        }
+        #print-dismiss:hover { background: #1e293b; }
+        header {
+            margin-bottom: 24px;
+        }
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+        header .meta {
+            font-size: 14px;
+            color: #475569;
+        }
+        main#printable-conversation {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            padding: 32px;
+        }
+        main#printable-conversation .message {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        main#printable-conversation .message:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .message-role {
+            font-weight: 600;
+            letter-spacing: 0.06em;
+        }
+        .message-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .message-content {
+            margin-top: 16px;
+            font-size: 15px;
+        }
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
+        .message-content h4,
+        .message-content h5,
+        .message-content h6 {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin: 16px 0 8px;
+        }
+        .message-content pre {
+            background: #f1f5f9;
+            color: #0f172a;
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #cbd5f5;
+            white-space: pre-wrap;
+            font-size: 0.92em;
+        }
+        .message-content pre code {
+            font-family: "Menlo", "Consolas", "Courier New", monospace;
+            color: inherit;
+        }
+        .message-content :not(pre) > code {
+            font-family: "Menlo", "Consolas", "Courier New", monospace;
+            background: #e2e8f0;
+            color: #111827;
+            padding: 0.12em 0.4em;
+            border-radius: 4px;
+        }
+        .asset-block {
+            margin: 16px 0;
+            text-align: center;
+        }
+        .asset-block img {
+            max-width: 100%;
+            max-height: 480px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+        }
+        .asset-block audio {
+            width: 100%;
+        }
+        .asset-caption {
+            margin-top: 8px;
+            color: #475569;
+            font-size: 13px;
+        }
+        .asset-link a {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+        .asset-link a:hover { text-decoration: underline; }
+        footer {
+            margin-top: 28px;
+            font-size: 12px;
+            color: #64748b;
+            text-align: center;
+        }
+        @media print {
+            body { background: #ffffff; padding: 0; }
+            #print-dismiss { display: none; }
+            main#printable-conversation {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 0;
+            }
+            a { color: #1d4ed8; }
+            .message-content pre {
+                -webkit-print-color-adjust: exact;
+                background: #f1f5f9 !important;
+                color: #0f172a !important;
+                border-color: #cbd5f5 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button id="print-dismiss" type="button" onclick="window.close()">Close</button>
+    <header>
+        <h1>{{ title }}</h1>
+        <div class="meta">Folder: {{ folder_name }} | Conversation ID: {{ conversation_id }}</div>
+        <div class="meta" style="margin-top: 4px;">Use your browser's print dialog to save this transcript as PDF.</div>
+    </header>
+    <main id="printable-conversation">
+        {% for message in messages %}
+        <article class="message {{ message.role }}">
+            <div class="message-role">{{ message.role_label }}</div>
+            <div class="message-meta">
+                {% if message.created_at_display %}
+                {{ message.created_at_display }}
+                {% else %}
+                &nbsp;
+                {% endif %}
+            </div>
+            <div class="message-content">{{ message.content_html|safe }}</div>
+        </article>
+        {% endfor %}
+    </main>
+    <footer>Generated on {{ generated_at }}</footer>
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => window.print(), 200);
+        });
+    </script>
+</body>
+</html>
