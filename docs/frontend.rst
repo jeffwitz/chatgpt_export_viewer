@@ -21,8 +21,8 @@ Fonts and assets
   available on the machine (``system-ui``, ``Segoe UI``...), which keeps everything offline.
 * The KaTeX font files required for math rendering ship in ``static/fonts``.
 
-Asset handling
---------------
+Asset handling & media filters
+-----------------------------
 
 The front-end does not perform extra detection:
 
@@ -34,8 +34,23 @@ The front-end does not perform extra detection:
    - ``audio/*`` -> ``<audio controls>`` element,
    - anything else -> download link.
 
-The "Media/Files", "Audio only", and "Images only" checkboxes filter the list client-side
-through ``updateDisplayedConversationList``.
+Filtering is handled entirely on the client. The sidebar now exposes inline emoji toggles
+(`🖼`, `🎵`, `🔧`). ``updateDisplayedConversationList`` interprets the media toggles with
+"OR" semantics: selecting only ``🖼`` shows image conversations, only ``🎵`` shows audio, and
+selecting both shows any conversation containing at least one of the two asset types. Tool
+messages can be hidden globally with ``🔧``; both the list and the rendered conversation honour
+the choice.
+
+Conversation actions
+--------------------
+
+The conversation header exposes two actions implemented in ``displayConversation``:
+
+* **Copy all** &rarr; streams the conversation as Markdown while respecting the current
+  tool-message filter.
+* **Print / PDF** &rarr; triggers ``window.print()`` in-place. The helper temporarily adds the
+  ``print-mode`` class to ``<body>`` so the CSS can hide navigation and maintain the exported
+  layout without opening a secondary tab.
 
 Code highlighting
 -----------------
@@ -44,6 +59,10 @@ Code highlighting
 strings, comments, numbers, and keywords for Python, JavaScript/C, HTML, and CSS. The
 implementation intentionally stays lightweight (no full parsing) but improves offline readability
 without external dependencies.
+
+When the language hint is ``latex`` – or the source looks like TeX (``\frac{}``, ``\begin``...
+even without an explicit hint) – apostrophes are *not* tokenised as string delimiters. This prevents
+erroneous highlighting in inline maths.
 
 Client-side search
 ------------------
@@ -59,3 +78,5 @@ UI considerations
   to load untrusted exports.
 * Accessibility: the asset icon is decorative only; consider adding ``sr-only`` text to help
   screen readers.
+* Printing relies on standard browser dialogs; ensure the ``print-mode`` overrides remain in sync
+  with layout changes so exports match the on-screen conversation.
