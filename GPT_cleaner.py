@@ -4,22 +4,19 @@
 import json
 import sys
 import os
-import argparse # Pour gérer les arguments de la ligne de commande
-import csv      # Pour écrire correctement le fichier de sortie (gère les virgules dans les titres)
+import argparse  # Command-line arguments
+import csv       # Write CSV safely (quotes, commas in titles)
 
 def calculate_conversation_text_length(conversation_data):
-    """
-    Calcule la longueur totale du texte dans tous les messages d'une conversation.
-    """
+    """Compute the cumulative length of all textual parts in a conversation."""
     total_length = 0
     mapping = conversation_data.get("mapping", {})
     if not isinstance(mapping, dict):
         return 0
 
-    for node_id, node_data in mapping.items():
+    for node_data in mapping.values():
         if not isinstance(node_data, dict):
             continue
-
         message = node_data.get("message")
         if isinstance(message, dict):
             content = message.get("content")
@@ -31,77 +28,67 @@ def calculate_conversation_text_length(conversation_data):
                             total_length += len(part)
     return total_length
 
-def sort_and_output(json_file_path, output_txt_file="analyse.txt"):
-    """
-    Charge un fichier JSON de conversations ChatGPT, calcule la taille totale
-    du texte pour chaque conversation, les trie par taille décroissante,
-    affiche les titres/tailles, et crée un fichier texte avec Titre,UUID.
-    """
-    if not os.path.exists(json_file_path):
-        print(f"Erreur: Le fichier JSON '{json_file_path}' n'a pas été trouvé.", file=sys.stderr)
-        return 1 # Code d'erreur
 
-    print(f"--- Traitement de '{json_file_path}' (tri par taille de message) ---")
+def sort_and_output(json_file_path, output_txt_file="analyse.txt"):
+    """Load conversations, rank them by total text length, and write a CSV-like report."""
+    if not os.path.exists(json_file_path):
+        print(f"Error: JSON file '{json_file_path}' was not found.", file=sys.stderr)
+        return 1
+
+    print(f"--- Processing '{json_file_path}' (sorting by message size) ---")
 
     try:
         with open(json_file_path, 'r', encoding='utf-8') as f:
             conversations = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"\nErreur: Impossible de décoder le JSON dans '{json_file_path}'.", file=sys.stderr)
-        print(f"Détails: {e}", file=sys.stderr)
+        print(f"\nError: Failed to decode JSON in '{json_file_path}'.", file=sys.stderr)
+        print(f"Details: {e}", file=sys.stderr)
         return 1
     except Exception as e:
-        print(f"\nErreur inattendue lors de la lecture du fichier '{json_file_path}':", file=sys.stderr)
-        print(f"Détails: {e}", file=sys.stderr)
+        print(f"\nUnexpected error while reading '{json_file_path}':", file=sys.stderr)
+        print(f"Details: {e}", file=sys.stderr)
         return 1
 
     if not isinstance(conversations, list):
-        print(f"Erreur: Le contenu de '{json_file_path}' n'est pas une liste JSON comme attendu.", file=sys.stderr)
+        print(f"Error: '{json_file_path}' does not contain the expected JSON list.", file=sys.stderr)
         return 1
 
-    # --- Calcul de la taille et stockage temporaire ---
     conversations_with_info = []
-    print("Calcul des tailles des conversations...")
+    print("Calculating conversation lengths...")
     for index, conv in enumerate(conversations):
         if not isinstance(conv, dict):
-             print(f"Avertissement: Élément {index} n'est pas un dictionnaire, ignoré.", file=sys.stderr)
-             continue
+            print(f"Warning: Element {index} is not a dictionary. Skipping.", file=sys.stderr)
+            continue
 
         length = calculate_conversation_text_length(conv)
-        title = conv.get("title", "[Titre Manquant]")
-        # Récupère l'ID de la conversation (UUID)
-        conv_id = conv.get("conversation_id", "[ID Manquant]")
+        title = conv.get("title", "[Missing Title]")
+        conv_id = conv.get("conversation_id", "[Missing ID]")
 
         conversations_with_info.append({
             "title": title,
             "length": length,
-            "id": conv_id # Stocke l'UUID ici
+            "id": conv_id
         })
         if (index + 1) % 100 == 0:
-             print(f"  {index + 1}/{len(conversations)} conversations traitées...")
+            print(f"  {index + 1}/{len(conversations)} conversations processed...")
 
-    print("Calcul des tailles terminé.")
-
-    # --- Tri des conversations par taille décroissante ---
-    print("Tri des conversations...")
+    print("Length calculation complete.")
+    print("Sorting conversations...")
     sorted_conversations = sorted(
         conversations_with_info,
         key=lambda item: item['length'],
         reverse=True
     )
-    print("Tri terminé.")
+    print("Sorting complete.")
 
-    # --- Affichage des titres et tailles triés (Console) ---
-    print(f"\n--- Conversations triées par taille totale de texte (décroissant) ---")
+    print("\n--- Conversations sorted by total text length (descending) ---")
     if not sorted_conversations:
-        print("(Aucune conversation valide trouvée ou traitée)")
+        print("(No valid conversations found)")
     else:
-        max_len_digits = 0
-        if sorted_conversations:
-             max_len_digits = len(str(sorted_conversations[0]['length']))
+        max_len_digits = len(str(sorted_conversations[0]['length'])) if sorted_conversations else 0
         max_idx_digits = len(str(len(sorted_conversations)))
 
-        print(f"{'#'.rjust(max_idx_digits)} | {'Taille'.rjust(max_len_digits)} | Titre")
+        print(f"{'#'.rjust(max_idx_digits)} | {'Length'.rjust(max_len_digits)} | Title")
         print(f"{'-'*(max_idx_digits+1)}+{'-'*(max_len_digits+2)}+{'-'*20}")
 
         for i, conv_info in enumerate(sorted_conversations):
@@ -110,47 +97,42 @@ def sort_and_output(json_file_path, output_txt_file="analyse.txt"):
             title = conv_info['title']
             print(f"{idx_str} | {len_str} | {title}")
 
-    # --- Écriture du fichier texte de sortie (analyse.txt) ---
-    print(f"\nÉcriture du fichier de sortie '{output_txt_file}'...")
+    print(f"\nWriting output file '{output_txt_file}'...")
     try:
         with open(output_txt_file, 'w', newline='', encoding='utf-8') as outfile:
-            # Utiliser csv.writer pour gérer correctement les virgules/quotes dans les titres
             writer = csv.writer(outfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            # N'écrit PAS d'en-tête, juste les données comme demandé
             for conv_info in sorted_conversations:
                 title = conv_info['title']
                 uuid = conv_info['id']
                 writer.writerow([title, uuid])
-        print(f"Fichier '{output_txt_file}' créé avec succès.")
+        print(f"File '{output_txt_file}' created successfully.")
 
     except IOError as e:
-         print(f"\nErreur: Impossible d'écrire dans le fichier '{output_txt_file}'.", file=sys.stderr)
-         print(f"Détails: {e}", file=sys.stderr)
-         return 1 # Code d'erreur différent pour l'écriture
+        print(f"\nError: Unable to write to '{output_txt_file}'.", file=sys.stderr)
+        print(f"Details: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
-         print(f"\nErreur inattendue lors de l'écriture du fichier '{output_txt_file}':", file=sys.stderr)
-         print(f"Détails: {e}", file=sys.stderr)
-         return 1
+        print(f"\nUnexpected error while writing '{output_txt_file}':", file=sys.stderr)
+        print(f"Details: {e}", file=sys.stderr)
+        return 1
 
+    print(f"\n--- Finished processing '{json_file_path}' ---")
+    return 0
 
-    print(f"\n--- Fin du traitement de '{json_file_path}' ---")
-    return 0 # Succès
-
-# --- Point d'Entrée du Script ---
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Charge conversations.json, trie par taille texte décroissante, affiche les résultats et crée analyse.txt (Titre,UUID).",
-        epilog="Exemple: python sort_chatgpt_output.py chemin/vers/conversations.json"
+        description="Load conversations.json, sort by total text length, display the results, and write analyse.txt (Title,UUID).",
+        epilog="Example: python GPT_cleaner.py path/to/conversations.json"
     )
     parser.add_argument(
         "json_file",
-        help="Chemin vers le fichier conversations.json à analyser."
+        help="Path to the conversations.json file to analyse."
     )
     parser.add_argument(
         "-o", "--output",
         default="analyse.txt",
-        help="Nom du fichier texte de sortie (défaut: analyse.txt)."
+        help="Name of the output text file (default: analyse.txt)."
     )
 
     args = parser.parse_args()

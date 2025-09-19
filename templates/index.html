@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Explorateur de Conversations</title>
+    <title>Conversation Explorer</title>
 
     <!-- KaTeX CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='katex.min.css') }}">
-    <!-- Font Awesome pour les icônes -->
+    <!-- Font Awesome for icons -->
     <!-- (Optionally, download Font Awesome locally if you want to remove CDN dependencies) -->
     <!-- Bootstrap CSS (local) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/bootstrap.min.css') }}">
-    <!-- Styles CSS personnalisés -->
+    <!-- Custom CSS styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
     <style>
-        /* Styles spécifiques à cette page (peuvent être déplacés dans style.css) */
+        /* Page specific styles (can be moved into style.css) */
         .folder-selector-container {
             padding: 10px;
             margin-bottom: 15px;
@@ -36,30 +36,30 @@
             font-size: 0.9em;
         }
 
-        /* ----- Styles pour la Recherche et Statut ----- */
+        /* ----- Search box and status styles ----- */
         #search-box {
-             /* Styles existants pour la barre de recherche */
-             margin-bottom: 5px; /* Espace avant le statut */
+             /* Existing search bar styling */
+             margin-bottom: 5px; /* Space before the status message */
         }
         #search-status {
-            /* Styles pour le message sous la barre de recherche */
+            /* Styling for the status message under the search bar */
             font-size: 0.8em;
-            color: #6c757d; /* Gris standard */
-            margin-top: 2px; /* Petit espace après la barre */
-            margin-bottom: 10px; /* Espace avant les filtres */
-            min-height: 1.2em; /* Évite les sauts de layout quand il est vide/rempli */
-            display: none; /* Caché par défaut, géré par JS */
-            padding-left: 5px; /* Petit retrait */
-            font-style: italic; /* Pour le distinguer */
+            color: #6c757d; /* Neutral gray */
+            margin-top: 2px; /* Small gap after the input */
+            margin-bottom: 10px; /* Space before the filter area */
+            min-height: 1.2em; /* Avoid layout jumps when toggled */
+            display: none; /* Hidden by default, toggled via JS */
+            padding-left: 5px; /* Small indent */
+            font-style: italic; /* Light emphasis */
         }
-        /* ----- Fin Styles Recherche ----- */
+        /* ----- End search styles ----- */
 
 
-        /* Filtres */
+        /* Filters */
         .filter-options {
             border-top: 1px solid #eee;
             padding-top: 10px;
-            margin-top: 10px; /* Rétabli car l'espace est maintenant sous #search-status */
+            margin-top: 10px; /* Space below #search-status */
         }
         .filter-option {
             padding: 5px 0;
@@ -82,7 +82,7 @@
             padding: 10px 8px;
         }
 
-        /* Style pour les boutons de copie (inchangé) */
+        /* Copy button visuals */
         .copy-button {
             background-color: #6c757d; color: white; border: none; border-radius: 4px;
             padding: 3px 8px; font-size: 0.8em; cursor: pointer; margin-left: 10px;
@@ -94,10 +94,10 @@
         .copy-button:active { background-color: #495057; }
         .copy-button i { margin-right: 0px; pointer-events: none; }
         .copy-button.copied { background-color: #28a745; cursor: default; }
-        /* .copy-button.copied i::before { content: "\f00c"; } */ /* Optionnel via JS */
+        /* .copy-button.copied i::before { content: "\f00c"; } */ /* Optional via JS */
 
 
-        /* Actions Globales (inchangé) */
+        /* Global actions */
         #global-actions {
             margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;
         }
@@ -109,122 +109,122 @@
         #copy-all-button:hover { background-color: #0056b3; }
         #copy-all-button i { margin-right: 6px; }
         #copy-all-button.copied { background-color: #218838; cursor: default; }
-        /* #copy-all-button.copied i::before { content: "\f00c"; } */ /* Optionnel via JS */
+        /* #copy-all-button.copied i::before { content: "\f00c"; } */ /* Optional via JS */
 
     </style>
 </head>
 <body>
-    <!-- Bouton hamburger, visible uniquement en dessous de md -->
+    <!-- Hamburger button, only visible below the md breakpoint -->
     <button id="sidebar-toggle" class="btn btn-light d-md-none" style="position:fixed;top:10px;left:10px;z-index:1051;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
         <span style="font-size:1.5em;">&#9776;</span>
     </button>
-    <!-- Overlay pour la sidebar sur mobile -->
+    <!-- Overlay for the sidebar on mobile -->
     <div id="sidebar-overlay" class="d-none" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:1050;"></div>
-    <!-- Barre Latérale -->
+    <!-- Sidebar -->
     <div id="sidebar" class="d-none d-md-flex flex-column" style="z-index:1052;">
         <h3>Conversations</h3>
 
-        <!-- Sélecteur de Dossier -->
+        <!-- Export folder selector -->
         <div class="folder-selector-container">
-            <label for="folder-selector">Dossier d'Export :</label>
+            <label for="folder-selector">Export folder:</label>
             <select id="folder-selector" name="folder_name">
-                <option value="">-- Sélectionner un dossier --</option>
+                <option value="">-- Select a folder --</option>
                 {% if folders %}
                     {% for folder in folders %}
-                    <option value="{{ folder | e }}">{{ folder | e }}</option> {# Utiliser filtre 'e' pour échapper caractères spéciaux #}
+                    <option value="{{ folder | e }}">{{ folder | e }}</option> {# Use the 'e' filter to escape special characters #}
                     {% endfor %}
                 {% else %}
-                    <option value="" disabled>Aucun dossier trouvé</option>
+                    <option value="" disabled>No folder found</option>
                 {% endif %}
             </select>
         </div>
 
-        <button type="button" id="toggle-upload-form" class="btn btn-outline-secondary btn-sm" style="margin-bottom:10px;">Importer un export ZIP</button>
+        <button type="button" id="toggle-upload-form" class="btn btn-outline-secondary btn-sm" style="margin-bottom:10px;">Import a ZIP export</button>
 
         <div id="upload-export-panel" class="folder-selector-container d-none">
-            <h6 style="margin:0 0 10px 0;">Importer un export ZIP</h6>
+            <h6 style="margin:0 0 10px 0;">Import a ZIP export</h6>
             <form id="upload-export-form" enctype="multipart/form-data">
                 <div class="mb-2">
-                    <label for="export-zip-input" class="form-label">Fichier ZIP</label>
+                    <label for="export-zip-input" class="form-label">ZIP file</label>
                     <input type="file" class="form-control form-control-sm" id="export-zip-input" accept=".zip" required>
                 </div>
                 <div class="mb-2">
-                    <label for="export-folder-name" class="form-label">Nom du dossier</label>
-                    <input type="text" class="form-control form-control-sm" id="export-folder-name" placeholder="Auto si vide">
+                    <label for="export-folder-name" class="form-label">Folder name</label>
+                    <input type="text" class="form-control form-control-sm" id="export-folder-name" placeholder="Auto if left blank">
                 </div>
                 <div class="mb-2">
-                    <label for="export-destination" class="form-label">Chemin de destination</label>
-                    <input type="text" class="form-control form-control-sm" id="export-destination" list="destination-suggestions" placeholder="/chemin/vers/export" required>
+                    <label for="export-destination" class="form-label">Destination path</label>
+                    <input type="text" class="form-control form-control-sm" id="export-destination" list="destination-suggestions" placeholder="/path/to/export" required>
                     <datalist id="destination-suggestions">
                         {% for suggestion in destination_suggestions %}
                         <option value="{{ suggestion | e }}"></option>
                         {% endfor %}
                     </datalist>
                 </div>
-                <button type="submit" id="upload-export-button" class="btn btn-primary btn-sm" style="width:100%;">Importer</button>
+                <button type="submit" id="upload-export-button" class="btn btn-primary btn-sm" style="width:100%;">Import</button>
                 <div id="upload-export-status" style="font-size:0.8em;margin-top:8px;color:#6c757d;"></div>
             </form>
         </div>
 
-        <!-- Recherche -->
-        {# Le placeholder indique maintenant que la recherche se fait partout #}
-        <input type="search" id="search-box" placeholder="Rechercher titre ou contenu..." style="background:#fff !important;color:#212529 !important;z-index:10;position:relative;"> 
-        <!-- NOUVEAU: Statut de la recherche -->
-        <div id="search-status"></div> {# Sera rempli et affiché par JavaScript #}
+        <!-- Search -->
+        {# Placeholder reminds that the query spans title and content #}
+        <input type="search" id="search-box" placeholder="Search title or content..." style="background:#fff !important;color:#212529 !important;z-index:10;position:relative;"> 
+        <!-- Search status -->
+        <div id="search-status"></div> {# Filled and toggled by JavaScript #}
 
 
-        <!-- Filtres -->
+        <!-- Filters -->
         <div class="filter-options">
             <div class="filter-option">
                 <input type="checkbox" id="filter-assets-checkbox">
-                <label for="filter-assets-checkbox">Avec Média/Fichiers</label>
+                <label for="filter-assets-checkbox">With media/files</label>
             </div>
             <div class="filter-option">
                 <input type="checkbox" id="filter-audio-checkbox">
-                <label for="filter-audio-checkbox">Avec Audio uniquement</label>
+                <label for="filter-audio-checkbox">Audio only</label>
             </div>
             <div class="filter-option">
                 <input type="checkbox" id="filter-images-checkbox">
-                <label for="filter-images-checkbox">Avec Images uniquement</label>
+                <label for="filter-images-checkbox">Images only</label>
             </div>
         </div>
 
-        <!-- Indicateur de Chargement Principal -->
+        <!-- Main loading indicator -->
         <div id="loading-indicator" style="display: none; text-align: center; padding: 15px; color: #6c757d;">
-             <i class="fas fa-spinner fa-spin"></i> Chargement...
+             <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
 
-        <!-- Liste des Conversations -->
+        <!-- Conversation list -->
         <ul id="conversation-list">
-            <!-- Rempli dynamiquement par JavaScript -->
-            <li class="empty-list">Sélectionnez un dossier pour commencer.</li>
+            <!-- Filled dynamically by JavaScript -->
+            <li class="empty-list">Select a folder to get started.</li>
         </ul>
     </div>
 
-    <!-- Contenu Principal -->
+    <!-- Main content -->
     <div id="main-content">
         <div id="conversation-view">
-             <!-- Titre et Actions Globales (gérés par JS) -->
-             <h2>Sélectionnez une conversation</h2>
+             <!-- Title and global actions (handled by JS) -->
+             <h2>Select a conversation</h2>
              <div id="global-actions" style="display: none;">
-                 <button id="copy-all-button" title="Copier toute la conversation au format Markdown">
-                     <i class="fas fa-copy"></i> Copier Tout (Markdown)
+                 <button id="copy-all-button" title="Copy the entire conversation in Markdown format">
+                     <i class="fas fa-copy"></i> Copy all (Markdown)
                  </button>
              </div>
-             <!-- Message initial / Contenu -->
-            <p style="color: #6c757d; margin-top: 20px;">Cliquez sur un titre dans la liste à gauche pour afficher la conversation ici.</p>
+             <!-- Initial message / content -->
+            <p style="color: #6c757d; margin-top: 20px;">Click a title in the list on the left to display the conversation here.</p>
             <div id="conversation-content">
-                <!-- Le contenu détaillé sera injecté ici -->
+                <!-- Detailed content is injected here -->
             </div>
         </div>
     </div>
 
-    <!-- Scripts JavaScript (ordres importants) -->
-    {# Bibliothèques externes d'abord #}
+    <!-- JavaScript includes (order matters) -->
+    {# External libraries first #}
     <script src="{{ url_for('static', filename='markdown-it.min.js') }}"></script>
     <script src="{{ url_for('static', filename='katex.min.js') }}"></script>
     <script src="{{ url_for('static', filename='auto-render.min.js') }}"></script>
-    {# Notre script principal en dernier #}
+    {# Main application script last #}
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
     <!-- Bootstrap JS (local) -->
@@ -240,7 +240,7 @@ function openSidebar() {
     sidebar.classList.remove('d-none');
     sidebarOverlay.classList.remove('d-none');
     document.body.style.overflow = 'hidden';
-    // Si mobile, positionne la sidebar en fixed au-dessus de l'overlay
+    // On mobile, pin the sidebar above the overlay
     if (window.innerWidth < 768) {
         sidebar.style.position = 'fixed';
         sidebar.style.top = '0';
@@ -258,7 +258,7 @@ function closeSidebar() {
     if (window.innerWidth < 768) sidebar.classList.add('d-none');
     sidebarOverlay.classList.add('d-none');
     document.body.style.overflow = '';
-    // Nettoie le style mobile
+    // Reset the mobile-specific styles
     if (window.innerWidth < 768) {
         sidebar.style.position = '';
         sidebar.style.top = '';
@@ -277,12 +277,12 @@ if (sidebarToggle) {
 if (sidebarOverlay) {
     sidebarOverlay.addEventListener('click', closeSidebar);
 }
-// Ferme la sidebar sur mobile quand on clique sur une conversation (améliorable)
+// Close the sidebar on mobile when a conversation is selected
 if (window.conversationListSidebarListenerAttached !== true) {
     const cl = document.getElementById('conversation-list');
     if (cl) {
         cl.addEventListener('click', function(e) {
-    // Ne ferme la sidebar que si on clique sur un <li> (titre de conversation)
+    // Only close the sidebar when clicking on an <li> (conversation title)
     let target = e.target;
     while (target && target !== cl) {
         if (target.tagName === 'LI') {
@@ -295,7 +295,7 @@ if (window.conversationListSidebarListenerAttached !== true) {
         window.conversationListSidebarListenerAttached = true;
     }
 }
-// Ferme la sidebar sur resize si on repasse en desktop
+// Close the sidebar on resize when returning to desktop width
 window.addEventListener('resize', function() {
     if (window.innerWidth >= 768) {
         sidebar.classList.remove('d-none');

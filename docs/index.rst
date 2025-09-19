@@ -1,22 +1,22 @@
 ChatGPT Export Viewer
 =====================
 
-Bienvenue dans la documentation du projet. Elle a deux objectifs :
+Welcome to the project documentation. It serves two purposes:
 
-* expliquer le pipeline de persistance et les points d’extension côté serveur ;
-* rappeler comment le front-end restitue les conversations (maths, assets, recherche).
+* explain the persistence pipeline and server-side extension points;
+* recap how the front-end renders conversations (math, assets, search).
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contenu
+   :caption: Contents
 
    architecture
    data-handling
    frontend
    contributing
 
-Indices et tables
-=================
+Indices and tables
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`

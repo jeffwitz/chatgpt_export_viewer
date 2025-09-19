@@ -1,41 +1,39 @@
-Gestion des données
-===================
+Data Handling
+=============
 
-Identification des types de fichiers
-------------------------------------
+File type detection
+-------------------
 
-Le typage MIME repose sur ``detect_file_types`` (``app_core/parsing``) :
+MIME detection relies on ``detect_file_types`` (``app_core/parsing``):
 
-* la liste des fichiers ciblés est déduite du ``asset_mapping`` extrait de
-  ``chat.html`` ;
-* pour chaque fichier, le cache ``file_type.json`` est relu si présent ;
-* si le type est inconnu ou marqué « Error », la fonction tente :
+* the list of target files comes from the ``asset_mapping`` extracted
+  from ``chat.html``;
+* for each file the cached ``file_type.json`` is read when present;
+* if the type is unknown or flagged as ``Error``, the function attempts:
 
-  1. ``python-magic`` (s’il est installé) pour lire l’en-tête binaire ;
-  2. ``mimetypes.guess_type`` comme repli pur Python ;
-  3. sinon, un message « application/octet-stream ».
+  1. ``python-magic`` (when installed) to inspect the binary header;
+  2. ``mimetypes.guess_type`` as a pure-Python fallback;
+  3. otherwise defaulting to ``application/octet-stream``.
 
-Les résultats sont écrits dans ``file_type.json`` afin d’éviter les détections
-répétées. Ce fichier est également stocké dans SQLite (colonne
-``file_types_json``) pour être renvoyé instantanément.
+The results are written back to ``file_type.json`` to avoid repeated detections.
+This file is also stored in SQLite (``file_types_json`` column) so it can be served immediately.
 
-Détection des assets et de l’audio
----------------------------------
+Asset and audio detection
+-------------------------
 
-* ``conversation_has_asset`` traverse la structure ``mapping`` des messages et
-  renvoie ``True`` dès qu’un ``asset_pointer`` est trouvé.
-* ``conversation_has_audio`` utilise le mapping pour récupérer le nom de fichier
-  et vérifie :
+* ``conversation_has_asset`` traverses the ``mapping`` structure and returns ``True``
+  as soon as an ``asset_pointer`` is found.
+* ``conversation_has_audio`` uses the mapping to recover the filename and checks:
 
-  - le type MIME stocké (``audio/`` ou mots-clés « wave audio », « ogg data »…)
-  - l’extension ``.wav``, ``.mp3``, ``.ogg``, ``.m4a``, ``.aac`` ou ``.flac``.
+  - the stored MIME type (``audio/`` or keywords like ``wave audio``, ``ogg data``...)
+  - the ``.wav``, ``.mp3``, ``.ogg``, ``.m4a``, ``.aac`` or ``.flac`` extensions.
 
-Le front consomme ces flags pour filtrer et afficher les icônes adéquates.
+The front-end consumes these flags to filter conversations and display the appropriate icons.
 
-Conservation de la structure JSON
----------------------------------
+Preserving the JSON structure
+-----------------------------
 
-Les conversations stockées en base sont le JSON original sérialisé sans
-modification. Lorsqu’elles sont réhydratées, ``mapping`` et ``message`` conservent
-les champs nécessaires au front (y compris les structures d’outils).
+Conversations stored in the database keep the original JSON representation.
+When they are rehydrated, ``mapping`` and ``message`` preserve all fields required by the UI
+(including tool aggregates).
 

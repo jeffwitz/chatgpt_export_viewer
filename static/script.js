@@ -1,4 +1,4 @@
-// static/script.js (Version Complète avec Correction Détection MIME Assouplie)
+// static/script.js (Complete version with relaxed MIME detection adjustments)
 
 // --- Global Variables ---
 let currentFolderData = {
@@ -6,8 +6,8 @@ let currentFolderData = {
     asset_mapping: {},
     file_types: {}
 };
-let md; // Instance Markdown-it
-const badCharsRegex = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\uE000-\uF8FF]/gu; // Regex pour caractères invalides
+let md; // Markdown-it instance
+const badCharsRegex = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\uE000-\uF8FF]/gu; // Strip control and private Unicode ranges
 
 // --- DOM Elements ---
 const folderSelector = document.getElementById('folder-selector');
@@ -19,7 +19,7 @@ const searchBox = document.getElementById('search-box');
 const filterAssetsCheckbox = document.getElementById('filter-assets-checkbox');
 const filterAudioCheckbox = document.getElementById('filter-audio-checkbox');
 const filterImagesCheckbox = document.getElementById('filter-images-checkbox');
-const searchStatus = document.getElementById('search-status'); // Pour afficher statut/résultats recherche
+const searchStatus = document.getElementById('search-status'); // Displays search status/results
 const uploadExportForm = document.getElementById('upload-export-form');
 const uploadExportStatus = document.getElementById('upload-export-status');
 const uploadExportButton = document.getElementById('upload-export-button');
@@ -34,9 +34,9 @@ const IMAGE_MIME_KEYWORDS = ['png image data', 'jpeg image data', 'gif image dat
 const AUDIO_EXTENSION_REGEX = /\.(wav|mp3|ogg|m4a|aac|flac)$/i;
 const IMAGE_EXTENSION_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|heic|heif)$/i;
 
-// --- Variable globale pour le délai de recherche ---
+// --- Global debounce timer for full-text search ---
 let searchDebounceTimeout = null;
-const DEBOUNCE_DELAY = 400; // Délai en ms avant de lancer la recherche après la saisie
+const DEBOUNCE_DELAY = 400; // Delay (ms) before triggering the remote search after input
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,9 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
     else { console.error("Folder selector element not found."); }
     if (conversationList) { conversationList.addEventListener('click', handleConversationClick); }
     else { console.error("Conversation list element not found."); }
-    if (searchBox) { searchBox.addEventListener('input', handleSearchInput); } // Utilise debounce
+    if (searchBox) { searchBox.addEventListener('input', handleSearchInput); } // Debounced search input
     else { console.error("Search box element not found."); }
-    // Les filtres appellent updateDisplayedConversationList directement
+    // Filters trigger the list refresh directly
     if (filterAssetsCheckbox) { filterAssetsCheckbox.addEventListener('change', updateDisplayedConversationList); }
     else { console.error("Assets filter checkbox not found."); }
     if (filterAudioCheckbox) { filterAudioCheckbox.addEventListener('change', updateDisplayedConversationList); }
@@ -64,35 +64,35 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadExportFileInput.addEventListener('change', populateFolderNameSuggestion);
     }
     if (toggleUploadFormButton) { toggleUploadFormButton.addEventListener('click', toggleUploadFormVisibility); }
-    // Listener pour "Copier Tout" attaché dynamiquement dans displayConversation
+    // The "Copy all" listener is attached dynamically in displayConversation
 
     // Initial Load Logic
     if (folderSelector && folderSelector.options.length > 1) {
-        folderSelector.selectedIndex = 1; // Sélectionne le premier vrai dossier
+        folderSelector.selectedIndex = 1; // Select the first real folder option
         console.log(`Initial load: Selecting first folder '${folderSelector.value}'`);
-        folderSelector.dispatchEvent(new Event('change')); // Déclenche chargement
+        folderSelector.dispatchEvent(new Event('change')); // Trigger initial load
     } else { console.log("Initial load: No folders found or only default option."); }
 });
 
 // --- Utility Functions ---
 
-/** Nettoie les caractères indésirables d'une chaîne. */
+/** Remove unwanted control characters from a string. */
 function cleanString(inputText) {
     if (typeof inputText !== 'string') return inputText;
     return inputText.replace(badCharsRegex, '');
 }
 
-/** Copie du texte dans le presse-papiers et affiche un retour visuel sur un bouton. */
+/** Copy text to the clipboard and give visual feedback on a button. */
 async function copyTextToClipboard(text, buttonElement) {
-    // Fallback si navigator.clipboard non dispo
+    // Fallback when navigator.clipboard is unavailable
     const doFeedback = () => {
         if (buttonElement) {
             const originalHtml = buttonElement.innerHTML;
             const originalTitle = buttonElement.title;
-            buttonElement.innerHTML = '<i class="fas fa-check"></i> Copié!';
+            buttonElement.innerHTML = '<i class="fas fa-check"></i> Copied!';
             buttonElement.classList.add('copied');
             buttonElement.disabled = true;
-            buttonElement.title = 'Copié !';
+            buttonElement.title = 'Copied!';
             setTimeout(() => {
                 buttonElement.innerHTML = originalHtml;
                 buttonElement.classList.remove('copied');
@@ -107,11 +107,11 @@ async function copyTextToClipboard(text, buttonElement) {
             doFeedback();
         } catch (err) {
             console.error('Failed to copy: ', err);
-            alert('Erreur copie.');
+            alert('Copy failed.');
             if (buttonElement) buttonElement.disabled = false;
         }
     } else {
-        // Fallback ancien navigateur ou contexte non sécurisé
+        // Legacy fallback for insecure contexts or older browsers
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -125,10 +125,10 @@ async function copyTextToClipboard(text, buttonElement) {
             if (successful) {
                 doFeedback();
             } else {
-                alert('Copie non supportée.');
+                alert('Copy not supported.');
             }
         } catch (err) {
-            alert('Copie non supportée.');
+            alert('Copy not supported.');
         }
     }
 }
@@ -136,36 +136,36 @@ async function copyTextToClipboard(text, buttonElement) {
 
 // --- Core Application Logic ---
 
-/** Charge les données de base (conversions, mapping, types) pour un dossier. */
+/** Load conversations, asset mapping, and file types for the selected folder. */
 async function loadConversationsForFolder() {
     const selectedFolder = folderSelector.value;
     console.log(`Folder selected: ${selectedFolder}`);
-    resetUI(); // Réinitialise l'interface
+    resetUI(); // Reset the UI before loading
     if (!selectedFolder) { setLoading(false); return; }
     setLoading(true);
     try {
-        // Appel API qui récupère les données ET assure l'indexation côté serveur
+        // API call returns data and triggers server-side ingestion when needed
         const response = await fetch(`/conversations?folder_name=${encodeURIComponent(selectedFolder)}`);
         if (!response.ok) { const errData = await response.json().catch(()=>({})); throw new Error(errData.error || `HTTP ${response.status}`); }
         const data = await response.json();
         console.log("Base data received:", data);
-        currentFolderData = data; // Stocker les données
-        preprocessConversationData(); // Ajouter infos calculées (has_asset, id...)
-        updateDisplayedConversationList(); // Afficher la liste initiale
+        currentFolderData = data; // Cache the snapshot locally
+        preprocessConversationData(); // Augment conversations with computed flags
+        updateDisplayedConversationList(); // Render the list
     } catch (error) {
         console.error('Error loading folder data:', error);
-        conversationView.innerHTML = `<p style="color:red;padding:20px;">Erreur chargement: ${error.message}</p>`;
-        conversationList.innerHTML = '<li class="empty-list">Erreur chargement.</li>';
+        conversationView.innerHTML = `<p style="color:red;padding:20px;">Load error: ${error.message}</p>`;
+        conversationList.innerHTML = '<li class="empty-list">Failed to load conversations.</li>';
         setSearchStatus('');
     } finally {
         setLoading(false);
     }
 }
 
-/** Réinitialise l'interface utilisateur à son état par défaut. */
+/** Reset the user interface to its default state. */
 function resetUI() {
     conversationList.innerHTML = '';
-    conversationView.innerHTML = '<h2>Sélectionnez une conversation</h2><p>Cliquez sur un titre.</p><div id="conversation-content"></div>';
+    conversationView.innerHTML = '<h2>Select a conversation</h2><p>Click a title.</p><div id="conversation-content"></div>';
     if (searchBox) searchBox.value = '';
     if (filterAssetsCheckbox) filterAssetsCheckbox.checked = false;
     if (filterAudioCheckbox) filterAudioCheckbox.checked = false;
@@ -177,12 +177,12 @@ function resetUI() {
     setLoading(false);
 }
 
-/** Affiche/cache l'indicateur de chargement global. */
+/** Show or hide the global loading indicator. */
 function setLoading(isLoading) {
     loadingIndicator.style.display = isLoading ? 'block' : 'none';
 }
 
-/** Met à jour le message sous la barre de recherche. */
+/** Update the status message displayed under the search box. */
 function setSearchStatus(message) {
     if (!searchStatus) return;
     searchStatus.textContent = message || '';
@@ -192,7 +192,7 @@ function setSearchStatus(message) {
 function setUploadStatus(message) {
     if (!uploadExportStatus) return;
     uploadExportStatus.textContent = message || '';
-    uploadExportStatus.style.color = message && message.startsWith('Erreur') ? '#c92a2a' : '#6c757d';
+    uploadExportStatus.style.color = message && message.toLowerCase().startsWith('error') ? '#c92a2a' : '#6c757d';
 }
 
 function toggleUploadFormVisibility() {
@@ -200,7 +200,7 @@ function toggleUploadFormVisibility() {
     const hidden = uploadExportPanel.classList.contains('d-none');
     if (hidden) {
         uploadExportPanel.classList.remove('d-none');
-        toggleUploadFormButton.textContent = 'Fermer l’import';
+        toggleUploadFormButton.textContent = 'Close import form';
         toggleUploadFormButton.classList.remove('btn-outline-secondary');
         toggleUploadFormButton.classList.add('btn-secondary');
         if (uploadExportFileInput) {
@@ -208,7 +208,7 @@ function toggleUploadFormVisibility() {
         }
     } else {
         uploadExportPanel.classList.add('d-none');
-        toggleUploadFormButton.textContent = 'Importer un export ZIP';
+        toggleUploadFormButton.textContent = 'Import a ZIP export';
         toggleUploadFormButton.classList.add('btn-outline-secondary');
         toggleUploadFormButton.classList.remove('btn-secondary');
         if (uploadExportForm) uploadExportForm.reset();
@@ -216,11 +216,11 @@ function toggleUploadFormVisibility() {
     }
 }
 
-/** Ajoute les informations calculées (has_asset, has_audio, id) aux conversations. */
+/** Enrich conversations with computed flags (has_asset, has_audio, has_image, id). */
 function preprocessConversationData() {
     if (!currentFolderData.conversations?.length) { console.warn("preprocess: No convos."); currentFolderData.conversations = []; return; }
     currentFolderData.conversations.forEach((conv, index) => {
-        if (typeof conv !== 'object' || conv === null) { console.warn(`preprocess: Invalid item @ ${index}.`); conv = { id: `invalid_${index}`, title: '[Inv]', mapping: {} }; currentFolderData.conversations[index] = conv; return; }
+        if (typeof conv !== 'object' || conv === null) { console.warn(`preprocess: Invalid item @ ${index}.`); conv = { id: `invalid_${index}`, title: '[Invalid]', mapping: {} }; currentFolderData.conversations[index] = conv; return; }
         conv.has_asset = conversationHasAsset(conv);
         conv.has_audio = conversationHasAudio(conv);
         conv.has_image = conversationHasImage(conv);
@@ -232,7 +232,7 @@ function preprocessConversationData() {
     console.log("preprocess: Complete.");
 }
 
-/** Vérifie si une conversation contient une référence à un asset. */
+/** Gather all parts that may reference assets for a mapping node. */
 function collectAssetPartsFromNode(node) {
     const parts = [];
     if (node?.message?.content?.parts && Array.isArray(node.message.content.parts)) {
@@ -258,7 +258,7 @@ function conversationHasAsset(conversation) {
     return false;
 }
 
-/** Vérifie spécifiquement les assets audio. */
+/** Detect whether a conversation references audio assets. */
 function conversationHasAudio(conversation) {
     if (!conversation?.mapping || typeof conversation.mapping !== 'object') return false;
     const am = currentFolderData.asset_mapping || {};
@@ -313,7 +313,7 @@ function appendConversationIcons(listItem, conversation) {
         icons.push({ className: 'fas fa-volume-up', title: 'Audio' });
     }
     if (conversation.has_asset && !conversation.has_image && !conversation.has_audio) {
-        icons.push({ className: 'fas fa-photo-video', title: 'Média/Fichier' });
+        icons.push({ className: 'fas fa-photo-video', title: 'Media/File' });
     }
     icons.forEach(iconCfg => {
         listItem.appendChild(document.createTextNode(' '));
@@ -326,17 +326,17 @@ function appendConversationIcons(listItem, conversation) {
     });
 }
 
-/** Met à jour la liste affichée basée sur FILTRE TITRE et CHECKBOXES. */
+/** Refresh the displayed list based on title search and filter checkboxes. */
 function updateDisplayedConversationList() {
     console.log("updateDisplayedConversationList: Based on title search and filters.");
-    const searchTerm = searchBox.value.toLowerCase().trim(); // Recherche TITRE
+    const searchTerm = searchBox.value.toLowerCase().trim(); // Title filter
     const filterAssets = !!(filterAssetsCheckbox && filterAssetsCheckbox.checked);
     const filterAudio = !!(filterAudioCheckbox && filterAudioCheckbox.checked);
     const filterImages = !!(filterImagesCheckbox && filterImagesCheckbox.checked);
     conversationList.innerHTML = '';
     if (!searchTerm) setSearchStatus('');
 
-    if (!currentFolderData.conversations?.length) { conversationList.innerHTML = '<li class="empty-list">Aucune conversation.</li>'; return; }
+    if (!currentFolderData.conversations?.length) { conversationList.innerHTML = '<li class="empty-list">No conversations.</li>'; return; }
 
     const filtered = currentFolderData.conversations.filter(c => {
         if (typeof c !== 'object' || !c?.id) return false;
@@ -350,9 +350,9 @@ function updateDisplayedConversationList() {
     if (filtered.length > 0) {
         filtered.forEach(c => {
             const listItem = document.createElement('li');
-            const titleText = c.title || '[Sans Titre]';
+            const titleText = c.title || '[Untitled]';
             if (c.id) listItem.dataset.conversationId = c.id;
-            else { listItem.style.opacity = "0.5"; listItem.title = "ID invalide"; }
+            else { listItem.style.opacity = "0.5"; listItem.title = "Invalid ID"; }
             listItem.textContent = '';
             const titleSpan = document.createElement('span');
             titleSpan.textContent = titleText;
@@ -360,39 +360,39 @@ function updateDisplayedConversationList() {
             appendConversationIcons(listItem, c);
             conversationList.appendChild(listItem);
         });
-        if (searchTerm || filterAssets || filterAudio || filterImages) setSearchStatus(`${filtered.length} résultat(s) pour filtres/titre.`);
+        if (searchTerm || filterAssets || filterAudio || filterImages) setSearchStatus(`${filtered.length} result(s) for filters/title.`);
     } else {
-        if (searchTerm) conversationList.innerHTML = '<li class="empty-list">Aucun titre ne correspond.</li>';
-        else if (filterAssets || filterAudio || filterImages) conversationList.innerHTML = '<li class="empty-list">Aucun résultat avec ces filtres.</li>';
-        else conversationList.innerHTML = '<li class="empty-list">Aucune conversation valide.</li>';
+        if (searchTerm) conversationList.innerHTML = '<li class="empty-list">No title matches.</li>';
+        else if (filterAssets || filterAudio || filterImages) conversationList.innerHTML = '<li class="empty-list">No conversation matches these filters.</li>';
+        else conversationList.innerHTML = '<li class="empty-list">No valid conversations.</li>';
     }
 }
 
 
-/** Gère la saisie dans searchBox : lance recherche Whoosh ou restaure liste standard. */
+/** Handle typing in the search box: debounce remote search or revert to the local list. */
 function handleSearchInput() {
     clearTimeout(searchDebounceTimeout);
     const query = searchBox.value.trim();
     const folderName = folderSelector.value;
     if (!folderName) return;
 
-    if (!query) { // Si recherche vidée
+    if (!query) { // Empty search term
         console.log("Search cleared, running updateDisplayedConversationList.");
-        updateDisplayedConversationList(); // Restaurer affichage standard
+        updateDisplayedConversationList(); // Restore the default list
         return;
     }
-    // Lancer recherche Whoosh après délai
-    setSearchStatus('Recherche...');
+    // Trigger remote search after the debounce delay
+    setSearchStatus('Searching...');
     searchDebounceTimeout = setTimeout(() => {
         performSearch(folderName, query);
     }, DEBOUNCE_DELAY);
 }
 
-/** Effectue la recherche plein texte via API /search. */
+/** Perform the full-text search via the /search API. */
 async function performSearch(folderName, query) {
     console.log(`Performing full-text search in '${folderName}' for: '${query}'`);
     setLoading(true);
-    setSearchStatus(`Recherche pour "${query}"...`);
+    setSearchStatus(`Searching for "${query}"...`);
     conversationList.innerHTML = '';
 
     try {
@@ -403,25 +403,25 @@ async function performSearch(folderName, query) {
         console.log("Search results (raw):", results);
         console.log("Is results an array?", Array.isArray(results));
 
-        displaySearchResults(results); // Afficher résultats Whoosh
-        setSearchStatus(`${results.length} résultat(s) pour "${query}" (contenu)`);
+        displaySearchResults(results);
+        setSearchStatus(`${results.length} result(s) for "${query}" (content)`);
 
     } catch (error) {
         console.error('Error during search fetch/processing:', error);
-        conversationList.innerHTML = `<li class="empty-list" style="color:orange;">Erreur recherche.</li>`;
-        setSearchStatus(`Erreur recherche: ${error.message}`);
+        conversationList.innerHTML = `<li class="empty-list" style="color:orange;">Search error.</li>`;
+        setSearchStatus(`Search error: ${error.message}`);
     } finally {
         setLoading(false);
     }
 }
 
-/** Affiche les résultats de la recherche Whoosh (liste d'ID/titre). */
+/** Render the search results (list of conversation id/title pairs). */
 function displaySearchResults(results) {
     console.log("--- displaySearchResults called with:", results);
     conversationList.innerHTML = '';
     if (!results || !Array.isArray(results) || results.length === 0) {
-        conversationList.innerHTML = '<li class="empty-list">Aucun résultat (contenu).</li>';
-        console.log("Displaying 'Aucun résultat' because results empty/invalid.");
+        conversationList.innerHTML = '<li class="empty-list">No results (content).</li>';
+        console.log("Displaying 'No results' because results empty/invalid.");
         console.log("------------------------------------");
         return;
     }
@@ -431,7 +431,7 @@ function displaySearchResults(results) {
         console.log(`  Processing result ${index}:`, conv);
         if (typeof conv !== 'object' || !conv.id || typeof conv.title !== 'string') { console.warn(`  Invalid search result item @ ${index}:`, conv); return; }
         const listItem = document.createElement('li');
-        const titleText = conv.title || '[Sans Titre]';
+        const titleText = conv.title || '[Untitled]';
         listItem.textContent = '';
         const titleSpan = document.createElement('span');
         titleSpan.textContent = titleText;
@@ -445,13 +445,13 @@ function displaySearchResults(results) {
      console.log("--- displaySearchResults finished ---");
 }
 
-/** Gère clic sur un item de la liste. */
+/** Handle clicks within the conversation list. */
 function handleConversationClick(event) {
      const listItem = event.target.closest('li');
      if (listItem && listItem.dataset.conversationId) { selectConversationItem(listItem); }
 }
 
-/** Sélectionne un item et affiche le détail. */
+/** Mark a list item as selected and show its details. */
 function selectConversationItem(listItem) {
     if (!listItem?.dataset?.conversationId || listItem.dataset.conversationId.startsWith('invalid_') || listItem.dataset.conversationId.startsWith('errid_')) return;
     const conversationId = listItem.dataset.conversationId;
@@ -460,10 +460,10 @@ function selectConversationItem(listItem) {
     displayConversation(conversationId);
 }
 
-/** Affiche le contenu détaillé d'une conversation. */
+/** Render the detailed content of a conversation. */
 function displayConversation(conversationId) {
-    // Reset vue
-    conversationView.innerHTML = `<h2>Chargement...</h2><div id="global-actions" style="display: none;"><button id="copy-all-button" title="Copier toute la conversation au format Markdown"><i class="fas fa-copy"></i> Copier Tout (Markdown)</button></div><div id="conversation-content"></div>`;
+    // Reset the view
+    conversationView.innerHTML = `<h2>Loading...</h2><div id="global-actions" style="display: none;"><button id="copy-all-button" title="Copy the entire conversation in Markdown format"><i class="fas fa-copy"></i> Copy all (Markdown)</button></div><div id="conversation-content"></div>`;
     const conversationContentContainer = document.getElementById('conversation-content');
     const globalActionsContainer = document.getElementById('global-actions');
     const copyAllButton = document.getElementById('copy-all-button');
@@ -473,11 +473,11 @@ function displayConversation(conversationId) {
     if (!conversation) { console.error(`DisplayConv: Conv ${conversationId} not found.`); return; }
     if (!conversationContentContainer || !globalActionsContainer || !copyAllButton) { console.error(`DisplayConv: Missing UI elements.`); return; }
 
-    console.log(`--- Displaying Conversation ID: ${conversationId}, Title: ${conversation.title || '[Sans Titre]'} ---`);
+    console.log(`--- Displaying Conversation ID: ${conversationId}, Title: ${conversation.title || '[Untitled]'} ---`);
     console.log("  Mapping structure to process:", conversation.mapping);
 
-    // Titre et actions
-    conversationView.querySelector('h2').textContent = conversation.title || '[Sans Titre]';
+    // Title and actions
+    conversationView.querySelector('h2').textContent = conversation.title || '[Untitled]';
     globalActionsContainer.style.display = 'block';
     copyAllButton.onclick = null; copyAllButton.addEventListener('click', handleCopyAllMarkdown);
 
@@ -485,7 +485,7 @@ function displayConversation(conversationId) {
     const messages = getMessagesFromMapping(conversation.mapping);
     if (!messages || messages.length === 0) {
         console.warn(`displayConversation: No messages from getMessagesFromMapping for ${conversationId}.`);
-        conversationContentContainer.innerHTML = '<p><i>Conversation vide ou contenu non chargé.</i></p>';
+        conversationContentContainer.innerHTML = '<p><i>Empty conversation or content not available.</i></p>';
         if(globalActionsContainer) globalActionsContainer.style.display = 'none';
         return;
     }
@@ -496,7 +496,7 @@ function displayConversation(conversationId) {
         const messageElement = document.createElement('div'); messageElement.classList.add('message', msg.role);
         // Auteur + Bouton Copie
         const authorElement = document.createElement('div'); authorElement.classList.add('message-author'); authorElement.textContent = msg.role;
-        const copyButton = document.createElement('button'); copyButton.className = 'copy-button'; copyButton.title = 'Copier message (Md)'; copyButton.innerHTML = '<i class="fas fa-clipboard"></i>';
+        const copyButton = document.createElement('button'); copyButton.className = 'copy-button'; copyButton.title = 'Copy message (MD)'; copyButton.innerHTML = '<i class="fas fa-clipboard"></i>';
         copyButton.addEventListener('click', (e) => handleCopySingleMessage(e.currentTarget, msg)); authorElement.appendChild(copyButton); messageElement.appendChild(authorElement);
         // Contenu
         const contentElement = document.createElement('div'); contentElement.classList.add('message-content');
@@ -504,41 +504,41 @@ function displayConversation(conversationId) {
             msg.parts.forEach(part => {
                 if (typeof part === 'string') { const cleaned=cleanString(part); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
                 else if (part && typeof part === 'object') {
-                    // --- SECTION ASSET CORRIGÉE ---
+                    // --- Asset rendering block (revised) ---
                     if (part.asset_pointer && currentFolderData.asset_mapping) {
                         const assetFilename = currentFolderData.asset_mapping[part.asset_pointer];
                         if (assetFilename) {
                             const assetUrl = `/export_files/${encodeURIComponent(folderSelector.value)}/${encodeURIComponent(assetFilename)}`;
                             const explicitMimeType = currentFolderData.file_types?.[assetFilename];
-                            let isImage = false, isAudio = false; let fileTypeDesc = "Fichier";
+                            let isImage = false, isAudio = false; let fileTypeDesc = "File";
                             console.log(`  [Asset Debug] File: ${assetFilename}, Explicit Type: ${explicitMimeType}`);
 
-                            // Décider basé sur MIME explicite (logique assouplie)
+                            // Decide based on the explicit MIME type (relaxed logic)
                             if (explicitMimeType && typeof explicitMimeType === 'string') {
                                 const lowerMime = explicitMimeType.toLowerCase();
                                 fileTypeDesc = explicitMimeType;
-                                // Vérification MIME assouplie
+                                // Relaxed MIME identification
                                 if (lowerMime.startsWith('image/') || ['png image data', 'jpeg image data', 'gif image data', 'webp image data', 'svg xml'].some(k => lowerMime.includes(k))) {
                                     isImage = true; console.log(`    -> Classified as IMAGE (MIME)`);
                                 } else if (lowerMime.startsWith('audio/') || ['mpeg layer 3', 'wave audio', 'ogg data', 'flac audio', 'aac audio'].some(k => lowerMime.includes(k))) {
                                     isAudio = true; console.log(`    -> Classified as AUDIO (MIME)`);
-                                } else if (lowerMime === 'application/octet-stream' || lowerMime === 'file not found') { console.log(`    -> MIME inconclusive (${explicitMimeType}). Will try ext.`); fileTypeDesc = (lowerMime === 'file not found')?"Fichier non trouvé":"Binaire"; }
+                                } else if (lowerMime === 'application/octet-stream' || lowerMime === 'file not found') { console.log(`    -> MIME inconclusive (${explicitMimeType}). Will try ext.`); fileTypeDesc = (lowerMime === 'file not found')?"File not found":"Binary"; }
                                 else { console.log(`    -> MIME '${explicitMimeType}' not recognized.`); }
                             } else { console.log(`    -> No explicit MIME. Will use extension.`); }
 
-                            // Fallback extension SI non classifié par MIME
+                            // Extension-based fallback when MIME does not classify the file
                             if (!isImage && !isAudio) {
                                 console.log(`    -> Applying extension fallback: ${assetFilename}`);
-                                if (/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(assetFilename)) { isImage = true; console.log(`    -> Classified as IMAGE (Ext)`); if (fileTypeDesc === "Fichier" || fileTypeDesc === "Binaire") fileTypeDesc = "Image (Ext)"; }
-                                else if (/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(assetFilename)) { isAudio = true; console.log(`    -> Classified as AUDIO (Ext)`); if (fileTypeDesc === "Fichier" || fileTypeDesc === "Binaire") fileTypeDesc = "Audio (Ext)"; }
+                                if (/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(assetFilename)) { isImage = true; console.log(`    -> Classified as IMAGE (Ext)`); if (fileTypeDesc === "File" || fileTypeDesc === "Binary") fileTypeDesc = "Image (Ext)"; }
+                                else if (/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(assetFilename)) { isAudio = true; console.log(`    -> Classified as AUDIO (Ext)`); if (fileTypeDesc === "File" || fileTypeDesc === "Binary") fileTypeDesc = "Audio (Ext)"; }
                                 else { console.log(`    -> Ext fallback no match.`); }
                             }
-                            // Afficher l'élément
-                            if (isImage) { const img=document.createElement('img'); img.src=assetUrl; img.alt=`Image: ${assetFilename}`; img.style.cssText='max-width:100%;max-height:450px;display:block;margin:10px 0;'; img.onerror=() => img.alt=`Erreur chargement image: ${assetFilename}`; contentElement.appendChild(img); }
+                            // Render the asset element
+                            if (isImage) { const img=document.createElement('img'); img.src=assetUrl; img.alt=`Image: ${assetFilename}`; img.style.cssText='max-width:100%;max-height:450px;display:block;margin:10px 0;'; img.onerror=() => img.alt=`Image load error: ${assetFilename}`; contentElement.appendChild(img); }
                             else if (isAudio) { const audC=document.createElement('div'); const aud=document.createElement('audio'); aud.controls=true; aud.src=assetUrl; aud.style.width='100%'; audC.appendChild(aud); const d=document.createElement('p'); d.innerHTML=`<i style='font-size:0.9em;color:#555'>Audio: ${assetFilename} (${fileTypeDesc})</i>`; d.style.margin="0 0 10px 0"; contentElement.appendChild(audC); contentElement.appendChild(d); }
                             else { const a=document.createElement('a'); a.href=assetUrl; a.target='_blank'; a.textContent=`[${cleanString(fileTypeDesc)}]: ${assetFilename}`; a.classList.add('data-link'); const p=document.createElement('p'); p.appendChild(a); contentElement.appendChild(p); }
-                        } else { contentElement.innerHTML += `<p><i>[Fichier (${cleanString(part.asset_pointer)}) non mappé]</i></p>`; }
-                    // --- FIN SECTION ASSET CORRIGÉE ---
+                        } else { contentElement.innerHTML += `<p><i>[File (${cleanString(part.asset_pointer)}) not mapped]</i></p>`; }
+                    // --- End of asset rendering block ---
                     } else if (part.content_type === 'code' && part.text) {
                         const pre = document.createElement('pre');
                         pre.classList.add('code-block');
@@ -552,15 +552,15 @@ function displayConversation(conversationId) {
                         contentElement.appendChild(pre);
                     }
                     else if (part.text && typeof part.text === 'string') { const cleaned=cleanString(part.text); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
-                    else { console.warn("Unhandled object part:", part); contentElement.innerHTML += `<p><i>[Contenu Objet Non Géré]</i></p>`; }
+                    else { console.warn("Unhandled object part:", part); contentElement.innerHTML += `<p><i>[Unhandled object content]</i></p>`; }
                 } else if (part !== null && part !== undefined) { console.warn("Unexpected part type:", typeof part, part); }
             });
         } else if (msg.text && typeof msg.text === 'string') { const cleaned=cleanString(msg.text); if (cleaned.trim()) contentElement.innerHTML += md.render(cleaned); }
-        else if (contentElement.innerHTML.trim() === '') { contentElement.innerHTML = '<i>[Message vide]</i>'; }
+        else if (contentElement.innerHTML.trim() === '') { contentElement.innerHTML = '<i>[Empty message]</i>'; }
         enhanceCodeBlocks(contentElement);
         messageElement.appendChild(contentElement);
         conversationContentContainer.appendChild(messageElement);
-    }); // Fin boucle messages
+    }); // End of message loop
 
     // Trigger KaTeX
     try { if (window.renderMathInElement) { renderMathInElement(conversationContentContainer, { delimiters: [{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false},{left:"\\[",right:"\\]",display:true},{left:"\\(",right:"\\)",display:false}], throwOnError: false }); } } catch (e) { console.error("KaTeX Error:", e); }
@@ -568,7 +568,7 @@ function displayConversation(conversationId) {
 }
 
 
-/** Extrait les messages ordonnés du mapping (Version avec Logs). */
+/** Extract ordered messages from the mapping (verbose logging version). */
 function getMessagesFromMapping(mapping) {
     console.log("--- getMessagesFromMapping ---");
     if (!mapping || typeof mapping !== 'object' || Object.keys(mapping).length === 0) { console.warn("  Mapping invalid/empty."); console.log("-----------------------------"); return []; }
@@ -601,14 +601,14 @@ function getMessagesFromMapping(mapping) {
     return messages;
 }
 
-/** Génère Markdown pour une part de message (inchangé). */
+/** Produce Markdown for a single message part. */
 function getMarkdownForMessagePart(part) {
     if (typeof part === 'string') { return cleanString(part).trim(); }
     else if (part && typeof part === 'object') {
-        if (part.asset_pointer && currentFolderData.asset_mapping) { const fn = currentFolderData.asset_mapping[part.asset_pointer]; if (fn) { const safeFn = fn.replace(/[<>:"/\\|?*]/g, '_'); const type = currentFolderData.file_types?.[fn]; let i=0, a=0; if(type){const lt=type.toLowerCase();if(lt.startsWith('image/')||['png image data','jpeg image data'].some(k=>lt.includes(k)))i=1;else if(lt.startsWith('audio/')||['mpeg layer 3','wave audio'].some(k=>lt.includes(k)))a=1;} if(!i&&!a&&/\.(png|jpe?g|gif|webp|svg)$/i.test(fn))i=1;else if(!i&&!a&&/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(fn))a=1; if(i) return `![Image: ${fn}](${safeFn})`; if(a) return `[Audio: ${fn}](${safeFn})`; return `[Fichier: ${fn}](${safeFn})`; } else return `*[Mappage Manquant: ${part.asset_pointer}]*`; }
+        if (part.asset_pointer && currentFolderData.asset_mapping) { const fn = currentFolderData.asset_mapping[part.asset_pointer]; if (fn) { const safeFn = fn.replace(/[<>:"/\\|?*]/g, '_'); const type = currentFolderData.file_types?.[fn]; let i=0, a=0; if(type){const lt=type.toLowerCase();if(lt.startsWith('image/')||['png image data','jpeg image data'].some(k=>lt.includes(k)))i=1;else if(lt.startsWith('audio/')||['mpeg layer 3','wave audio'].some(k=>lt.includes(k)))a=1;} if(!i&&!a&&/\.(png|jpe?g|gif|webp|svg)$/i.test(fn))i=1;else if(!i&&!a&&/\.(wav|mp3|ogg|m4a|aac|flac)$/i.test(fn))a=1; if(i) return `![Image: ${fn}](${safeFn})`; if(a) return `[Audio: ${fn}](${safeFn})`; return `[File: ${fn}](${safeFn})`; } else return `*[Missing mapping: ${part.asset_pointer}]*`; }
         else if (part.content_type === 'code' && part.text) { const lang=part.language||''; return `\`\`\`${lang}\n${cleanString(part.text||'')}\n\`\`\``; }
         else if (part.text && typeof part.text === 'string') { return cleanString(part.text).trim(); }
-        else return `*[Contenu Objet Non Géré]*`;
+        else return `*[Unhandled object content]*`;
     } return '';
 }
 
@@ -803,12 +803,12 @@ async function handleUploadExportSubmit(event) {
     event.preventDefault();
     setUploadStatus('');
     if (!uploadExportFileInput?.files?.length) {
-        setUploadStatus('Erreur: sélectionnez un fichier ZIP.');
+        setUploadStatus('Error: select a ZIP file.');
         return;
     }
     const destination = (uploadExportDestinationInput?.value || '').trim();
     if (!destination) {
-        setUploadStatus('Erreur: indiquez un chemin de destination.');
+        setUploadStatus('Error: provide a destination path.');
         return;
     }
     const folderName = (uploadExportFolderInput?.value || '').trim();
@@ -820,7 +820,7 @@ async function handleUploadExportSubmit(event) {
         formData.append('folder_name', folderName);
     }
 
-    setUploadStatus('Import en cours...');
+    setUploadStatus('Import in progress...');
     if (uploadExportButton) {
         uploadExportButton.disabled = true;
     }
@@ -836,16 +836,16 @@ async function handleUploadExportSubmit(event) {
             payload = {};
         }
         if (!response.ok) {
-            const msg = payload.error || 'Import échoué.';
+            const msg = payload.error || 'Import failed.';
             throw new Error(msg);
         }
-        setUploadStatus('Import réussi. Rechargement...');
+        setUploadStatus('Import successful. Reloading...');
         setTimeout(() => {
             window.location.reload();
         }, 800);
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Erreur inconnue.';
-        setUploadStatus(`Erreur: ${message}`);
+        const message = error instanceof Error ? error.message : 'Unknown error.';
+        setUploadStatus(`Error: ${message}`);
     } finally {
         if (uploadExportButton) {
             uploadExportButton.disabled = false;
@@ -853,21 +853,21 @@ async function handleUploadExportSubmit(event) {
     }
 }
 
-/** Copie message unique (inchangé). */
+/** Copy a single message block to the clipboard. */
 function handleCopySingleMessage(buttonElement, messageData) {
     let md=''; if (messageData.parts?.length) md = messageData.parts.map(getMarkdownForMessagePart).filter(m=>m).join('\n\n'); else if(messageData.text) md = getMarkdownForMessagePart(messageData.text);
-    if(md) copyTextToClipboard(md.trim(), buttonElement); else { /* feedback vide */ }
+    if(md) copyTextToClipboard(md.trim(), buttonElement); else { /* empty feedback */ }
 }
 
-/** Copie toute la conversation (inchangé). */
+/** Copy the entire conversation in Markdown form. */
 function handleCopyAllMarkdown(event) {
     const li = conversationList.querySelector('li.selected'); if(!li?.dataset?.conversationId) return; const convId = li.dataset.conversationId; const conv = currentFolderData.conversations.find(c=>c.id===convId); if(!conv) return;
     let fullMd = `# ${conv.title||'Conversation'}\n\n`; const msgs = getMessagesFromMapping(conv.mapping);
     if(msgs?.length) msgs.forEach(msg => { fullMd += `**${msg.role.toUpperCase()}**:\n\n`; let msgMd=''; if(msg.parts?.length) msgMd=msg.parts.map(getMarkdownForMessagePart).filter(m=>m).join('\n\n'); else if(msg.text) msgMd=getMarkdownForMessagePart(msg.text); fullMd += msgMd.trim() + '\n\n---\n\n'; });
-    else fullMd += "*[Vide]*"; copyTextToClipboard(fullMd.trim(), event.currentTarget);
+    else fullMd += "*[Empty]*"; copyTextToClipboard(fullMd.trim(), event.currentTarget);
 }
 
-/** Navigation clavier (inchangé). */
+/** Keyboard navigation shortcuts. */
 function handleKeyboardNavigation(event) {
     const activeEl = document.activeElement; const inputFocus = activeEl && (['input','textarea','select'].includes(activeEl.tagName.toLowerCase())); if (inputFocus || !mainContent) return;
     const scrollAmt = mainContent.clientHeight*0.85; switch(event.key){ case 'PageDown': event.preventDefault();mainContent.scrollBy({top:scrollAmt,behavior:'smooth'}); break; case 'PageUp': event.preventDefault();mainContent.scrollBy({top:-scrollAmt,behavior:'smooth'}); break; case 'End': if(event.ctrlKey||event.metaKey){event.preventDefault();mainContent.scrollTo({top:mainContent.scrollHeight,behavior:'smooth'});} break; case 'Home': if(event.ctrlKey||event.metaKey){event.preventDefault();mainContent.scrollTo({top:0,behavior:'smooth'});} break; }

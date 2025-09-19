@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Force l'ingestion d'un dossier d'export dans la base SQLite."""
+"""Force the ingestion of an export folder into the SQLite database."""
 from __future__ import annotations
 
 import argparse
@@ -20,13 +20,13 @@ DB_PATH = db_core.get_database_path(PROJECT_ROOT)
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("folder", help="Nom du dossier d'export à ingérer")
+    parser.add_argument("folder", help="Name of the export folder to ingest")
     args = parser.parse_args(argv)
 
     folder = args.folder
     folder_path = os.path.join(PROJECT_ROOT, folder)
     if not os.path.isdir(folder_path):
-        parser.error(f"Le dossier '{folder}' est introuvable dans {PROJECT_ROOT}")
+        parser.error(f"Folder '{folder}' was not found under {PROJECT_ROOT}")
 
     db_core.ensure_parent_directory(DB_PATH)
     with db_core.connection_scope(DB_PATH) as conn:
@@ -34,8 +34,8 @@ def main(argv: list[str] | None = None) -> int:
         fts_enabled = info.get("fts_enabled", False)
         snapshot = ingest_core.ensure_export(conn, PROJECT_ROOT, folder, fts_enabled=fts_enabled)
         print(
-            f"Ingestion terminée pour '{folder}'. Conversations: {len(snapshot.conversations)} | "
-            f"Assets: {len(snapshot.asset_mapping)} | FTS: {'OK' if fts_enabled else 'désactivé'}"
+            f"Ingestion finished for '{folder}'. Conversations: {len(snapshot.conversations)} | "
+            f"Assets: {len(snapshot.asset_mapping)} | FTS: {'OK' if fts_enabled else 'disabled'}"
         )
     return 0
 

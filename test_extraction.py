@@ -2,17 +2,18 @@
 import os
 import re
 import json
-import argparse # Pour passer le chemin du fichier en argument
+import argparse  # Allow passing the file path as a CLI argument
+import sys
 
 def extract_assets_json_only(html_content):
     """
-    Extrait UNIQUEMENT la variable 'assetsJson' (un dictionnaire) depuis une chaîne HTML.
+    Extract ONLY the 'assetsJson' variable (a dictionary) from an HTML string.
     """
     variable_name = "assetsJson"
     print(f"--- Attempting to extract variable '{variable_name}' ---")
-    start_delimiter, end_delimiter = ('{', '}') # On sait que assetsJson est un dict
+    start_delimiter, end_delimiter = ('{', '}')  # assetsJson is known to be a dict
 
-    # Regex pour trouver 'assetsJson = { ... } ;' (point-virgule optionnel)
+    # Regex to find 'assetsJson = { ... };' (semicolon optional)
     pattern_str = f"\\b{variable_name}\\b\\s*=\\s*({start_delimiter}[\\s\\S]*?{end_delimiter})\\s*;?"
     print(f"  DEBUG: Regex pattern: {pattern_str}")
 
@@ -47,15 +48,15 @@ def extract_assets_json_only(html_content):
             print(log_separator)
             return None
         except Exception as e_parse:
-             print(f"  ERROR: Unexpected error during JSON parsing for '{variable_name}': {e_parse}")
-             print(log_separator)
-             return None
+            print(f"  ERROR: Unexpected error during JSON parsing for '{variable_name}': {e_parse}")
+            print(log_separator)
+            return None
     else:
         print(f"  ERROR: Could not find the pattern '{variable_name} = {start_delimiter}...{end_delimiter}' in the HTML content.")
         print(log_separator)
         return None
 
-# --- Exécution Principale du Script ---
+# --- Main Script Execution ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test extraction of assetsJson from a chat.html file.")
     parser.add_argument("html_filepath", help="Path to the chat.html file to test.")
@@ -65,7 +66,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(html_filepath):
         print(f"ERROR: File not found: {html_filepath}")
-        sys.exit(1) # Quitter avec un code d'erreur
+        sys.exit(1)  # Exit with an error code
 
     print(f"Reading HTML file: {html_filepath}")
     try:
@@ -74,16 +75,16 @@ if __name__ == "__main__":
         print("Successfully read HTML content.")
     except Exception as e:
         print(f"ERROR: Failed to read file: {e}")
-        sys.exit(1) # Quitter avec un code d'erreur
+        sys.exit(1)  # Exit with an error code
 
-    # Appeler la fonction d'extraction
+    # Run the extraction helper
     extracted_mapping = extract_assets_json_only(html_content_main)
 
-    # Afficher le résultat
+    # Display the outcome
     if extracted_mapping is not None:
         print("\n--- EXTRACTION RESULT ---")
         print(f"Successfully extracted assetsJson! Found {len(extracted_mapping)} items.")
-        # Afficher quelques éléments pour vérification
+        # Display a few values for manual inspection
         count = 0
         print("First few items:")
         for key, value in extracted_mapping.items():
@@ -92,7 +93,7 @@ if __name__ == "__main__":
             if count >= 5:
                 break
         if len(extracted_mapping) > 5:
-             print("  ...")
+            print("  ...")
     else:
         print("\n--- EXTRACTION RESULT ---")
         print("Extraction of assetsJson failed. Check logs above for details.")

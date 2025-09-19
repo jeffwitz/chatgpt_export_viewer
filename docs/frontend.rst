@@ -1,66 +1,61 @@
-Front-end et rendu
-==================
+Front-end and Rendering
+=======================
 
-Rendu des mathématiques
------------------------
+Math rendering
+--------------
 
-* ``static/katex.min.js`` et ``static/auto-render.min.js`` sont chargés depuis le
-  template ``templates/index.html``.
-* Après le rendu d’une conversation, ``displayConversation`` appelle
-  ``renderMathInElement`` (cf. ``static/script.js``) avec les délimiteurs
-  ``$...$``, ``$$...$$`` ainsi que ``\(\)`` / ``\[\]``.
-* ``throwOnError`` est désactivé pour afficher les expressions même en cas de
-  syntaxe incomplète.
+* ``static/katex.min.js`` and ``static/auto-render.min.js`` are loaded from the
+  ``templates/index.html`` template.
+* After a conversation is rendered, ``displayConversation`` calls
+  ``renderMathInElement`` (see ``static/script.js``) with the ``$...$``, ``$$...$$``
+  and ``\(\)`` / ``\[\]`` delimiters.
+* ``throwOnError`` is disabled so expressions show up even when the syntax is incomplete.
 
-Si KaTeX n’est pas chargé (erreur réseau, chemin incorrect), la fonction est
-simplement ignorée et la console affiche un message.
+If KaTeX fails to load (network issue or broken path) the function gracefully returns
+and logs a warning in the console.
 
-Polices et assets
+Fonts and assets
+----------------
+
+* Stylesheets no longer use remote ``@import`` rules: they fall back to local fonts
+  available on the machine (``system-ui``, ``Segoe UI``...), which keeps everything offline.
+* The KaTeX font files required for math rendering ship in ``static/fonts``.
+
+Asset handling
+--------------
+
+The front-end does not perform extra detection:
+
+1. ``currentFolderData.asset_mapping`` resolves ``asset_pointer`` values to filenames.
+2. ``currentFolderData.file_types`` exposes the MIME type or textual hint.
+3. ``displayConversation`` decides how to render each asset:
+
+   - ``image/*`` -> responsive ``<img>`` element,
+   - ``audio/*`` -> ``<audio controls>`` element,
+   - anything else -> download link.
+
+The "Media/Files", "Audio only", and "Images only" checkboxes filter the list client-side
+through ``updateDisplayedConversationList``.
+
+Code highlighting
 -----------------
 
-* Les feuilles de style n’incluent plus d’``@import`` distant : tout repose sur
-  les polices locales disponibles sur la machine (``system-ui``, ``Segoe UI``,
-  etc.), garantissant un usage hors-ligne.
-* Les polices KaTeX nécessaires au rendu mathématique sont livrées dans
-  ``static/fonts``.
+``<pre><code>`` blocks receive a minimal highlighter: a handful of regular expressions detect
+strings, comments, numbers, and keywords for Python, JavaScript/C, HTML, and CSS. The
+implementation intentionally stays lightweight (no full parsing) but improves offline readability
+without external dependencies.
 
-Gestion des assets
+Client-side search
 ------------------
 
-Le front n’effectue pas de détection supplémentaire :
+* The title search relies on local filtering (``updateDisplayedConversationList``).
+* The global search input triggers a debounced call to ``/search``; results are
+  highlighted in the list.
 
-1. ``currentFolderData.asset_mapping`` convertit les ``asset_pointer`` en noms de
-   fichiers.
-2. ``currentFolderData.file_types`` indique le MIME ou une info textuelle.
-3. ``displayConversation`` décide du rendu :
+UI considerations
+-----------------
 
-   - ``image/*`` → ``<img>`` responsive,
-   - ``audio/*`` → ``<audio controls>``,
-   - autres → lien de téléchargement.
-
-Les cases à cocher « Média/Fichiers », « Audio uniquement » et « Images uniquement »
-filtrent la liste côté client via ``updateDisplayedConversationList``.
-
-Coloration du code
-------------------
-
-Les blocs ``<pre><code>`` sont décorés via un surlignage maison : quelques
-regex identifient chaînes, commentaires, nombres et mots-clés pour Python,
-JavaScript/C, HTML et CSS. La fonction est volontairement légère (pas de
-parsing complet) mais améliore la lisibilité hors-ligne sans dépendance
-externe.
-
-Recherche côté client
----------------------
-
-* La recherche par titre utilise un filtrage local (``updateDisplayedConversationList``).
-* Le champ global déclenche (après un ``debounce``) un appel ``/search`` ; les
-  résultats sont surlignés dans la liste.
-
-Points d’attention UI
----------------------
-
-* XSS : ``markdown-it`` est configuré avec ``html: true``. Prévoir un nettoyage
-  (ex. DOMPurify) si des exports non fiables sont chargés.
-* Accessibilité : l’icône d’asset est purement décorative ; ajouter un ``sr-only``
-  peut aider les lecteurs d’écran.
+* XSS: ``markdown-it`` runs with ``html: true``. Add a sanitizer (e.g. DOMPurify) if you plan
+  to load untrusted exports.
+* Accessibility: the asset icon is decorative only; consider adding ``sr-only`` text to help
+  screen readers.

@@ -1,64 +1,64 @@
 /* static/style.css */
 
-/* Polices : on s'appuie uniquement sur les polices installées localement pour garantir un fonctionnement hors-ligne */
+/* Fonts: rely solely on locally installed fonts to guarantee offline support */
 
-/* Réinitialisation et style de base */
+/* Reset and base styling */
 * {
-    box-sizing: border-box; /* Inclut padding et border dans la largeur/hauteur */
+    box-sizing: border-box; /* Include padding and borders in width/height */
 }
 
 body {
-    /* Police améliorée avec fallbacks Unicode/Emoji */
-    font-family: "Noto Sans", /* Priorité si importée */
-                 system-ui, -apple-system, BlinkMacSystemFont, /* Systèmes modernes */
+    /* Font stack with Unicode/emoji fallbacks */
+    font-family: "Noto Sans", /* Preferred if available */
+                 system-ui, -apple-system, BlinkMacSystemFont, /* Modern systems */
                  "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, /* Windows, Android, Linux */
-                 "Open Sans", "Helvetica Neue", /* Fallbacks web */
-                 "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", /* Emojis & Symboles */
-                 sans-serif; /* Dernier recours */
+                 "Open Sans", "Helvetica Neue", /* Web fallbacks */
+                 "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", /* Emoji & symbols */
+                 sans-serif; /* Final fallback */
 
     display: flex;
-    height: 100vh; /* Pleine hauteur */
+    height: 100vh; /* Fill the viewport height */
     margin: 0;
-    overflow: hidden; /* Empêche le scroll global */
-    font-size: 14px; /* Taille de police de base */
-    line-height: 1.6; /* Espacement de ligne confortable */
-    color: #212529; /* Couleur de texte par défaut */
-    background-color: #f8f9fa; /* Fond léger pour toute la page */
-    -webkit-font-smoothing: antialiased; /* Meilleur rendu de police sur certains écrans */
+    overflow: hidden; /* Prevent global scrolling */
+    font-size: 14px; /* Base font size */
+    line-height: 1.6; /* Comfortable line height */
+    color: #212529; /* Default text colour */
+    background-color: #f8f9fa; /* Light page background */
+    -webkit-font-smoothing: antialiased; /* Better font rendering on some screens */
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Barre Latérale */
+/* Sidebar */
 #sidebar {
-    width: 300px; /* Largeur fixe */
-    border-right: 1px solid #dee2e6; /* Bordure plus subtile */
-    padding: 15px; /* Un peu plus d'air */
-    overflow-y: auto; /* Scroll interne si contenu trop long */
+    width: 300px; /* Fixed width */
+    border-right: 1px solid #dee2e6; /* Subtle divider */
+    padding: 15px; /* Breathing room */
+    overflow-y: auto; /* Scroll internally when needed */
     display: flex;
     flex-direction: column;
-    background-color: #ffffff; /* Fond blanc pour la sidebar */
-    flex-shrink: 0; /* NE PAS RÉTRÉCIR */
-    box-shadow: 2px 0 5px rgba(0,0,0,0.05); /* Légère ombre portée */
+    background-color: #ffffff; /* White background */
+    flex-shrink: 0; /* Do not shrink */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05); /* Light drop shadow */
 }
 
 #sidebar h3 {
     margin-top: 0;
-    margin-bottom: 15px; /* Plus d'espace sous le titre */
-    color: #343a40; /* Couleur de titre */
-    font-weight: 600; /* Un peu plus gras */
+    margin-bottom: 15px; /* Space under the heading */
+    color: #343a40; /* Heading colour */
+    font-weight: 600; /* Slightly bolder */
     font-size: 1.2em;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
 }
 
 #search-box {
-    margin-bottom: 15px; /* Espacement */
+    margin-bottom: 15px; /* Spacing */
     padding: 10px;
     width: 100%;
     border: 1px solid #ced4da;
     border-radius: 4px;
     font-size: 1em;
-    line-height: 1.4; /* Hauteur de ligne pour input */
+    line-height: 1.4; /* Input line height */
 }
 
 #search-box:focus {
@@ -67,7 +67,7 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* Filtre (case à cocher) */
+/* Filter checkboxes */
 .filter-option {
     padding: 8px 0;
     margin-bottom: 10px;
@@ -83,7 +83,7 @@ body {
 }
 .filter-option label {
     cursor: pointer;
-    user-select: none; /* Empêche la sélection du texte du label */
+    user-select: none; /* Prevent selecting label text */
 }
 
 
@@ -91,43 +91,43 @@ body {
     list-style: none;
     padding: 0;
     margin: 0;
-    flex-grow: 1; /* Prend l'espace vertical restant */
-    overflow-y: auto; /* Scroll interne si liste trop longue */
-    border-top: 1px solid #dee2e6; /* Séparateur au-dessus de la liste */
+    flex-grow: 1; /* Consume remaining vertical space */
+    overflow-y: auto; /* Scroll list when necessary */
+    border-top: 1px solid #dee2e6; /* Divider above the list */
 }
 
 #conversation-list li {
-    padding: 10px 8px; /* Plus d'espace vertical */
+    padding: 10px 8px; /* Extra vertical space */
     cursor: pointer;
-    border-bottom: 1px solid #f1f3f5; /* Séparateur très léger */
-    white-space: nowrap; /* Empêche le retour à la ligne */
-    overflow: hidden; /* Cache le texte qui dépasse */
-    text-overflow: ellipsis; /* Ajoute "..." si texte trop long */
+    border-bottom: 1px solid #f1f3f5; /* Very light divider */
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflowed text */
+    text-overflow: ellipsis; /* Ellipsis for long titles */
     font-size: 0.95em;
     color: #495057;
     transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
 }
 
 #conversation-list li:hover {
-    background-color: #f8f9fa; /* Fond léger au survol */
+    background-color: #f8f9fa; /* Light hover background */
 }
 
-#conversation-list li.selected { /* Style pour l'élément sélectionné */
+#conversation-list li.selected { /* Styling for the selected element */
     background-color: #007bff;
     color: white;
     font-weight: 500;
 }
 #conversation-list li.selected:hover {
-     background-color: #0069d9; /* Assombrit légèrement au survol quand sélectionné */
+     background-color: #0069d9; /* Slightly darker hover when selected */
 }
 
 
-/* Contenu Principal */
+/* Main content */
 #main-content {
-    flex-grow: 1; /* Prend tout l'espace restant */
-    padding: 30px; /* Plus d'espace autour */
-    overflow-y: auto; /* Scroll interne pour le contenu */
-    background-color: #ffffff; /* Fond blanc */
+    flex-grow: 1; /* Take the remaining width */
+    padding: 30px; /* Outer padding */
+    overflow-y: auto; /* Scroll content internally */
+    background-color: #ffffff; /* White background */
 }
 
 #conversation-view h2 {
@@ -136,27 +136,27 @@ body {
     padding-bottom: 15px;
     border-bottom: 1px solid #dee2e6;
     font-weight: 500;
-    font-size: 1.6em; /* Titre plus proéminent */
+    font-size: 1.6em; /* Prominent heading */
     color: #343a40;
     line-height: 1.3;
 }
 
 #loading {
     text-align: center;
-    padding: 40px; /* Plus d'espace */
+    padding: 40px; /* Extra spacing */
     font-style: italic;
-    color: #6c757d; /* Gris */
-    font-size: 1.2em; /* Plus visible */
+    color: #6c757d; /* Neutral grey */
+    font-size: 1.2em; /* More visible */
 }
 
-/* Style des Messages */
+/* Message styling */
 .message {
     margin-bottom: 25px;
     padding: 15px 20px;
-    border-radius: 12px; /* Coins un peu plus arrondis */
+    border-radius: 12px; /* Softer corners */
     border: 1px solid #e9ecef;
     max-width: 85%;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.07); /* Ombre légèrement plus prononcée */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.07); /* Slightly stronger shadow */
     line-height: 1.6;
 }
 
@@ -165,7 +165,7 @@ body {
     margin-left: auto;
     border-color: #cce7ff;
     color: #0c5460;
-    border-bottom-right-radius: 4px; /* Petite pointe style bulle */
+    border-bottom-right-radius: 4px; /* Speech bubble pointer */
 }
 
 .message.assistant {
@@ -173,7 +173,7 @@ body {
     margin-right: auto;
     border-color: #dee2e6;
     color: #343a40;
-    border-bottom-left-radius: 4px; /* Petite pointe style bulle */
+    border-bottom-left-radius: 4px; /* Speech bubble pointer */
 }
 
 .message.tool {
@@ -183,7 +183,7 @@ body {
     color: #856404;
     font-size: 0.9em;
     max-width: 80%;
-    font-family: "Noto Sans Mono", Consolas, Monaco, monospace; /* Police mono */
+    font-family: "Noto Sans Mono", Consolas, Monaco, monospace; /* Monospace font */
     padding: 10px 15px;
 }
 
@@ -198,187 +198,196 @@ body {
     margin-right: auto;
     color: #383d41;
     padding: 10px 15px;
-    border-radius: 4px; /* Moins arrondi pour système */
 }
 
-.message-author {
+.message .message-role {
     font-weight: 600;
-    margin-bottom: 8px;
-    font-size: 0.8em;
-    color: inherit; /* Hérite couleur de la bulle */
-    opacity: 0.7; /* Encore plus discret */
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 0.8em;
+    margin-bottom: 6px;
+    display: inline-flex;
+    align-items: center;
+    letter-spacing: 0.05em;
+    color: inherit;
 }
 
-.message-content {
-    word-wrap: break-word;
-}
-/* Enlève marges par défaut des éléments potentiellement générés par Markdown */
-.message-content > *:first-child { margin-top: 0; }
-.message-content > *:last-child { margin-bottom: 0; }
-
-/* Style Markdown spécifique */
-.message-content pre {
-    background-color: #282c34; /* Fond sombre Atom/VSCode */
-    color: #abb2bf; /* Texte gris clair */
-    padding: 1em;
-    border-radius: 4px;
-    overflow-x: auto;
-    white-space: pre;
-    font-family: "Noto Sans Mono", 'Fira Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-    font-size: 0.9em;
-    margin: 1em 0;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+.message .message-role i {
+    margin-right: 6px;
+    font-size: 1.1em;
 }
 
-.message-content pre code {
-    display: block;
-    line-height: 1.5;
+.message .message-content {
+    color: inherit;
+    font-size: 0.95em;
+    word-break: break-word;
 }
 
-:not(pre) > code {
-    background-color: rgba(27,31,35,.08);
-    padding: .2em .4em;
-    margin: 0 0.1em; /* Léger espacement */
-    font-size: 85%;
-    border-radius: 3px;
-    font-family: "Noto Sans Mono", 'Fira Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-    color: #3a3a3a;
-}
-
-.inline-code {
-    background-color: rgba(27,31,35,.08);
-    border-radius: 3px;
-    padding: .2em .4em;
-}
-
-.code-keyword { color: #c792ea; }
-.code-string { color: #ecc48d; }
-.code-number { color: #f78c6c; }
-.code-comment { color: #6c757d; font-style: italic; }
-.code-tag { color: #82aaff; }
-.code-attr { color: #f07178; }
-.code-entity { color: #7fdbca; }
-.code-property { color: #89ddff; }
-.code-command { color: #82aaff; }
-.code-brace { color: #f6ad55; }
-.code-optional-delim { color: #a3be8c; }
-
-.message-content img {
+.message .message-content img {
     max-width: 100%;
-    max-height: 450px;
-    height: auto;
-    display: block;
-    margin: 15px auto; /* Centre l'image si possible */
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: #f8f9fa; /* Fond clair pour transparence */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-radius: 6px;
+    margin: 10px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
-.message-content a:not(.data-link) {
-    color: #0056b3;
-    text-decoration: none;
-    font-weight: 500;
-}
-.message-content a:not(.data-link):hover {
-    text-decoration: underline;
-    color: #003d80; /* Assombrit au survol */
+.message .message-content audio {
+    width: 100%;
+    margin: 10px 0;
 }
 
-.message-content ul, .message-content ol {
-    padding-left: 2em;
-    margin-top: 0.5em;
-    margin-bottom: 1em;
-}
-.message-content li {
-    margin-bottom: 0.4em;
-}
-
-.message-content blockquote {
-    border-left: 4px solid #adb5bd;
-    padding: 0.5em 1.2em; /* Padding vertical ajouté */
-    margin: 1em 0; /* Marge verticale standardisée */
-    margin-left: 0; /* Pas de marge gauche supplémentaire */
-    color: #495057;
-    background-color: #f8f9fa;
-    border-radius: 0 4px 4px 0;
-}
-.message-content blockquote p {
-    margin-bottom: 0.5em;
-}
-.message-content blockquote p:last-child {
-     margin-bottom: 0;
-}
-
-.message-content hr {
-    border: none;
-    border-top: 1px solid #dee2e6;
-    margin: 2em 0; /* Plus d'espace pour les séparateurs */
-}
-
-/* Liens vers les fichiers data */
-.message-content a.data-link {
-    display: inline-block;
-    margin: 8px 5px 8px 0;
-    padding: 8px 15px;
-    background-color: #e9ecef;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    text-decoration: none;
-    color: #495057;
-    font-size: 0.9em;
-    font-weight: 500;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-.message-content a.data-link:hover {
-    background-color: #dee2e6;
-    border-color: #adb5bd;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-.message-content a.data-link::before {
-    content: '📄 ';
-    margin-right: 4px;
-    font-style: normal; /* Assure que l'emoji n'est pas en italique */
-}
-
-/* Style KaTeX */
-.katex { font-size: 1.1em; } /* Légèrement plus grand */
-
-.katex-display {
-    text-align: center !important;
-    margin: 1.2em 0;
-    padding: 0.5em 0;
+.message .message-content pre {
+    background-color: #1e1e2f;
+    color: #f8f9fa;
+    padding: 14px;
     overflow-x: auto;
-    overflow-y: hidden;
-    border: 1px dashed #eee;
-    background-color: #fdfdfd;
-}
-.katex-display > .katex {
-    text-align: center !important;
-}
-
-/* Scrollbars (optionnel, pour un look plus moderne) */
-::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
-}
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 10px;
-    border: 2px solid #f1f1f1; /* Espace autour du pouce */
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #aaa;
+    border-radius: 8px;
+    font-size: 0.88em;
+    line-height: 1.5;
+    border: 1px solid rgba(255,255,255,0.05);
+    margin: 12px 0;
 }
 
-/* Pour Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #ccc #f1f1f1;
+.message .message-content code.inline-code {
+    background-color: rgba(27,31,35,0.05);
+    color: #e83e8c;
+    padding: 0.12em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: "Noto Sans Mono", Consolas, Monaco, monospace;
+}
+
+.message .message-content code .code-keyword { color: #ffaf40; }
+.message .message-content code .code-string { color: #8be9fd; }
+.message .message-content code .code-number { color: #f78c6c; }
+.message .message-content code .code-comment { color: #6272a4; font-style: italic; }
+.message .message-content code .code-command { color: #9aedfe; }
+.message .message-content code .code-brace { color: #f1fa8c; }
+.message .message-content code .code-optional-delim { color: #ff79c6; }
+.message .message-content code .code-tag { color: #8be9fd; }
+.message .message-content code .code-attr { color: #50fa7b; }
+.message .message-content code .code-property { color: #bd93f9; }
+.message .message-content code .code-entity { color: #ffb86c; }
+
+.message .message-meta {
+    margin-top: 8px;
+    font-size: 0.75em;
+    color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.message .copy-button {
+    background: none;
+    border: none;
+    color: rgba(0,0,0,0.6);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease-in-out;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.message .copy-button:hover {
+    color: #007bff;
+    background-color: rgba(0,0,0,0.05);
+}
+
+.message .copy-button i {
+    margin-right: 4px;
+}
+
+/* Assets & data links */
+.message .message-content .data-link {
+    text-decoration: none;
+    color: #0d6efd;
+    font-weight: 500;
+}
+
+.message .message-content .data-link:hover {
+    text-decoration: underline;
+}
+
+/* Upload panel */
+#upload-export-panel {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px dashed #ced4da;
+    border-radius: 6px;
+    background-color: #f1f3f5;
+}
+
+#upload-export-panel label {
+    font-size: 0.85em;
+    color: #495057;
+}
+
+#upload-export-status {
+    font-size: 0.85em;
+    margin-top: 8px;
+    color: #6c757d;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    body {
+        flex-direction: column;
+    }
+
+    #sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+        box-shadow: none;
+    }
+
+    #main-content {
+        padding: 20px;
+    }
+
+    #conversation-view h2 {
+        font-size: 1.3em;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        font-size: 13px;
+    }
+
+    #main-content {
+        padding: 15px;
+    }
+
+    .message {
+        max-width: 100%;
+        margin-bottom: 20px;
+        padding: 12px 16px;
+    }
+
+    .message .message-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .message .copy-button {
+        margin-top: 6px;
+        padding: 6px 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    #main-content {
+        padding: 10px;
+    }
+
+    #conversation-view h2 {
+        font-size: 1.15em;
+        padding-bottom: 10px;
+    }
+
+    .message {
+        padding: 10px 14px;
+    }
 }

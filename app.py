@@ -311,7 +311,7 @@ def upload_export():
     base_name = os.path.splitext(upload.filename)[0] if generated else provided_name
     folder_name = _normalise_folder_name(base_name)
     if folder_name in IGNORED_FOLDERS:
-        return jsonify({"error": "Nom de dossier non autorisé."}), 400
+        return jsonify({"error": "Folder name not allowed."}), 400
 
     registry = _build_export_registry()
     target_path = os.path.join(destination_root, folder_name)
@@ -325,11 +325,11 @@ def upload_export():
             folder_name = candidate
             target_path = os.path.join(destination_root, folder_name)
         else:
-            return jsonify({"error": "Un dossier portant ce nom existe déjà."}), 400
+            return jsonify({"error": "A folder with this name already exists."}), 400
 
     os.makedirs(destination_root, exist_ok=True)
     if os.path.exists(target_path):
-        return jsonify({"error": "Le dossier de destination existe déjà."}), 400
+        return jsonify({"error": "Destination folder already exists."}), 400
 
     os.makedirs(UPLOAD_TMP_DIR, exist_ok=True)
     temp_dir = tempfile.mkdtemp(prefix="upload_", dir=UPLOAD_TMP_DIR)
@@ -349,7 +349,7 @@ def upload_export():
         return jsonify({"error": f"Archive invalide: {exc}"}), 400
     except Exception as exc:  # pragma: no cover - defensive logging
         shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({"error": f"Erreur lors de l'extraction: {exc}"}), 500
+        return jsonify({"error": f"Extraction error: {exc}"}), 500
 
     export_root = _locate_export_root(extract_dir)
     if not export_root:
@@ -366,13 +366,13 @@ def upload_export():
     except Exception as exc:  # pragma: no cover - defensive logging
         shutil.rmtree(temp_dir, ignore_errors=True)
         shutil.rmtree(target_path, ignore_errors=True)
-        return jsonify({"error": f"Impossible de déplacer l'export: {exc}"}), 500
+        return jsonify({"error": f"Could not move the export: {exc}"}), 500
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     if not _has_export_files(target_path):
         shutil.rmtree(target_path, ignore_errors=True)
-        return jsonify({"error": "Le dossier importé est incomplet."}), 400
+        return jsonify({"error": "Imported folder is incomplete."}), 400
 
     try:
         with db_core.connection_scope(DB_PATH) as conn:
@@ -384,7 +384,7 @@ def upload_export():
             )
     except Exception as exc:  # pragma: no cover - defensive logging
         shutil.rmtree(target_path, ignore_errors=True)
-        return jsonify({"error": f"Erreur lors de l'ingestion: {exc}"}), 500
+        return jsonify({"error": f"Ingestion error: {exc}"}), 500
 
     _register_export_location(folder_name, target_path)
     return jsonify({"status": "ok", "folder": folder_name, "path": target_path})

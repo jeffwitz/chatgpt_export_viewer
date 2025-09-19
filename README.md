@@ -1,83 +1,82 @@
 # ChatGPT Export Viewer (SQLite Edition)
 
-Cette application Flask permet de parcourir localement un export ChatGPT (`conversations.json`, `chat.html` et fichiers associés). Elle s’appuie désormais sur SQLite pour éviter de re-parser les fichiers à chaque requête.
+This Flask application lets you browse ChatGPT exports locally (`conversations.json`, `chat.html`, and their associated assets). SQLite persistence avoids reparsing the raw files on every request.
 
-## Fonctionnalités principales
-- Interface web Bootstrap pour naviguer dans les conversations, afficher les messages et pièces jointes, copier en Markdown, rendre KaTeX.
-- Détection des assets (images, audio, autres fichiers) avec typage MIME automatique.
-- Recherche plein texte via l’extension FTS5 de SQLite (Whoosh n’est plus requis).
-- Scripts utilitaires pour inspecter et nettoyer les exports (`Analyse_json.py`, `GPT_cleaner.py`, etc.).
-- Fonctionnement 100 % hors-ligne (polices et librairies statiques fournies localement).
-- Coloration syntaxique basique (Python, JS/C, HTML, CSS) sans dépendance externe.
-- Filtres locaux pour repérer les conversations avec médias, audio ou images uniquement.
+## Key Features
+- Bootstrap web interface to browse conversations, display messages and attachments, copy Markdown, and render KaTeX.
+- Automatic detection of assets (images, audio, other files) with MIME type inference.
+- Full-text search powered by the SQLite FTS5 extension (Whoosh is no longer required).
+- Utility scripts to inspect and clean exports (`Analyse_json.py`, `GPT_cleaner.py`, and more).
+- Works entirely offline - fonts and libraries are bundled locally.
+- Lightweight syntax highlighting (Python, JS/C, HTML, CSS) with no external dependency.
+- Local filters to highlight conversations that contain media, audio, or images.
 
-## Installation rapide
+## Quick Installation
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt  # ou installer Flask/ijson/python-magic si besoin
+pip install -r requirements.txt  # or install Flask/ijson/python-magic manually if needed
 ```
 
-> Remarque : le projet n’introduit pas de nouvelle dépendance obligatoire en dehors de la bibliothèque standard. Si `python-magic` est disponible, la détection MIME est plus précise.
+> Note: the core app only relies on the Python standard library plus Flask. If `python-magic` is installed, MIME detection becomes more accurate.
 
-## Lancement du serveur
+## Starting the Server
 ```bash
-source .venv/bin/activate  # ou activez l'environnement de votre choix
+source .venv/bin/activate  # or activate your preferred environment
 FLASK_APP=app python -m flask run --no-debugger --no-reload --host 0.0.0.0 --port 5001
 ```
 
-Placez vos dossiers d’export (ceux qui contiennent `conversations.json` et `chat.html`) à la racine du projet : ils sont détectés automatiquement.
+Drop your export folders (the ones that contain `conversations.json` and `chat.html`) at the repository root; they will be detected automatically.
 
-## Importer un export ZIP
-- Dans l’interface, utilisez le formulaire « Importer un export ZIP » pour téléverser l’archive reçue depuis ChatGPT.
-- Indiquez le chemin de destination : il peut pointer vers n’importe quel support monté (SSD externe, NAS, etc.).
-- L’application décompresse l’archive, crée le dossier d’export, l’indexe en SQLite et l’ajoute automatiquement à la liste.
-- Vous pouvez laisser le champ « Nom du dossier » vide pour qu’il soit déduit du nom du fichier ZIP.
+## Importing a ZIP Export
+- Use the "Import ZIP export" form in the interface to upload the archive you received from ChatGPT.
+- Provide the target path - it can point to any mounted volume (external SSD, NAS, etc.).
+- The application extracts the archive, creates the export folder, indexes it in SQLite, and adds it to the list automatically.
+- You can leave the "Folder name" field empty to reuse the ZIP filename.
 
-## Documentation Sphinx
+## Sphinx Documentation
 
-Une documentation développeur est disponible dans `docs/`. Pour la construire :
+Developer documentation lives in `docs/`. To build it:
 
 ```bash
 source .venv/bin/activate
-pip install -r requirements-dev.txt  # inclut sphinx-rtd-theme
+pip install -r requirements-dev.txt  # includes sphinx-rtd-theme
 cd docs
 sphinx-build -b html . _build/html
 ```
 
-Les pages générées décrivent l’architecture serveur, la détection des fichiers,
-et le rendu front-end (maths, assets, recherche).
+The generated pages describe the server architecture, asset detection, and the front-end rendering logic (math, assets, search).
 
-## Persistance SQLite
-- Le fichier de base de données est créé dans `app_data.db` à la racine.
-- Lors du premier chargement d’un dossier, le parsing complet est effectué puis stocké en base (conversations, assets, types MIME).
-- Les requêtes suivantes lisent directement les données en SQLite, ce qui évite le délai initial.
-- Une table FTS5 (`conversation_search`) gère la recherche. Si FTS5 n’est pas disponible dans votre SQLite, la route `/search` renvoie une erreur 501.
+## SQLite Persistence
+- The database file is `app_data.db` at the repository root.
+- The first load of a folder parses all raw files and stores the results (conversations, asset mapping, MIME guesses) in SQLite.
+- Subsequent requests read directly from SQLite, removing the initial delay.
+- An FTS5 virtual table (`conversation_search`) powers the search route. If FTS5 is not available in your SQLite build, the `/search` route returns a 501 error.
 
-### Scripts utilitaires
-Un script CLI est fourni pour (ré)ingérer un export manuellement :
+### Utility Scripts
+Use the CLI script to ingest (or reingest) an export manually:
 ```bash
 source .venv/bin/activate
 python scripts/refresh_export.py 06042025
 ```
 
-## Développement
-- Code Python formaté selon PEP 8, annotations de type ajoutées progressivement.
-- Modules côté serveur :
-  - `app_core/parsing.py` : logique d’extraction (reprend le comportement historique).
-  - `app_core/db.py` : connexion SQLite.
-  - `app_core/schema.py` : création/mises à jour du schéma.
-  - `app_core/ingest.py` : pipeline d’ingestion + recherche.
-- Front-end inchangé (`static/script.js`) : la logique de rendu reste côté navigateur.
+## Development Notes
+- Python code follows PEP 8; type annotations are being added progressively.
+- Server-side modules:
+  - `app_core/parsing.py`: extraction logic (mirrors the original behaviour).
+  - `app_core/db.py`: SQLite connection helpers.
+  - `app_core/schema.py`: schema creation and migrations.
+  - `app_core/ingest.py`: ingestion pipeline + search.
+- Front-end logic stays in the browser (`static/script.js`).
 
-## Tests rapides
+## Quick Checks
 ```bash
 source .venv/bin/activate
 python -m compileall app.py app_core
-python -m pytest  # si vous ajoutez des tests
+python -m pytest  # add tests as needed
 ```
 
 ## Roadmap
-- Ajouter des tests unitaires sur `app_core.parsing`.
-- Gérer des exports très volumineux via ingestion incrémentale.
-- Exposer un bouton UI pour déclencher une ré-indexation manuelle.
+- Add unit tests for `app_core.parsing`.
+- Handle very large exports through incremental ingestion.
+- Expose a UI button that triggers a manual reindex.

@@ -1,36 +1,34 @@
-Contribution
+Contributing
 ============
 
-Mettre en place l’environnement
-------------------------------
+Set up the environment
+----------------------
 
-1. Créez/activez votre virtualenv.
-2. Installez Flask et les dépendances souhaitées (``python-magic`` facultatif).
-3. Pour la documentation, installez les dépendances de dev (incluant le thème):
+1. Create/activate your virtualenv.
+2. Install Flask and any optional dependencies you need (``python-magic`` is optional).
+3. For the documentation, install the development extras (including the theme):
    ``pip install -r requirements-dev.txt``.
 
-Construire la documentation
----------------------------
+Building the documentation
+--------------------------
 
 ```bash
 cd docs
 sphinx-build -b html . _build/html
 ```
 
-La sortie HTML se trouve dans ``docs/_build/html``. Pour un rafraîchissement
-continu, utilisez ``sphinx-autobuild``.
+The HTML output lives in ``docs/_build/html``. For live reload, use ``sphinx-autobuild``.
 
-Style de code
--------------
+Code style
+----------
 
-* Python : PEP 8 + annotations de type, fonctions courtes et testables.
-* JavaScript : const/let appropriés, commentaires uniquement pour les blocs non
-  triviaux.
-* CSS/HTML : privilégier la clarté et les classes descriptives.
+* Python: PEP 8 with type annotations, short testable functions.
+* JavaScript: use const/let appropriately, keep comments for non-trivial sections only.
+* CSS/HTML: favour clarity and descriptive class names.
 
-Tests recommandés
+Recommended tests
 -----------------
 
-* ``python -m compileall app.py app_core`` pour vérifier la syntaxe.
-* Ajoutez des tests unitaires ciblant ``app_core.parsing`` et ``app_core.ingest``
-  dès que des évolutions logiques sont introduites.
+* ``python -m compileall app.py app_core`` to catch syntax errors.
+* Add unit tests targeting ``app_core.parsing`` and ``app_core.ingest`` whenever you change their logic.
+

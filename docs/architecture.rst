@@ -1,63 +1,62 @@
-Architecture serveur
-====================
+Server Architecture
+===================
 
-Vue d’ensemble
---------------
+Overview
+--------
 
-Le serveur Flask (`app.py`) délègue la quasi-totalité de la logique métier à
-``app_core`` pour faciliter les tests et la maintenance.
+The Flask server (`app.py`) delegates almost all business logic to
+``app_core`` to keep the code testable and maintainable.
 
-Flux d’une requête ``/conversations``
--------------------------------------
+Flow of a ``/conversations`` request
+------------------------------------
 
-1. **Validation** : le nom de dossier est vérifié via ``_validate_folder_name``
-   (nettoyage des ``..`` et contrôle du périmètre).
-2. **Connexion SQLite** : ouverture d’une connexion via
-   ``app_core.db.connection_scope`` qui configure les PRAGMA (WAL, foreign keys).
-3. **Ingestion conditionnelle** : ``app_core.ingest.ensure_export`` compare les
-   dates de modification de ``conversations.json`` et ``chat.html`` avec les
-   métadonnées stockées dans la table ``exports``.
-   - Si les fichiers sont inchangés, les conversations sont retournées depuis la
-     base (JSON préservé à l’identique).
-   - Sinon le pipeline de parsing est relancé (voir section « Parsing »), les
-     résultats sont (ré)insérés en base puis renvoyés au client.
-4. **Réponse** : le JSON retourné contient ``conversations``, ``asset_mapping``
-   et ``file_types`` exactement comme avant la refactorisation.
+1. **Validation**: the folder name is checked via ``_validate_folder_name``
+   (rejects ``..`` and enforces the allowed scope).
+2. **SQLite connection**: a connection is opened with
+   ``app_core.db.connection_scope`` which applies the PRAGMA tuning (WAL, foreign keys).
+3. **Conditional ingestion**: ``app_core.ingest.ensure_export`` compares the
+   modification times of ``conversations.json`` and ``chat.html`` with the metadata stored in
+   the ``exports`` table.
+   - If the files are unchanged, the conversations are returned directly from the database
+     (JSON is left untouched).
+   - Otherwise the parsing pipeline reruns (see the "Parsing" section), results are
+     (re)inserted into SQLite, then returned to the client.
+4. **Response**: the JSON payload includes ``conversations``, ``asset_mapping``
+   and ``file_types`` exactly like the pre-refactor behaviour.
 
-Persistence SQLite
+SQLite persistence
 ------------------
 
-``app_core/schema.py`` crée trois éléments principaux :
+``app_core/schema.py`` prepares three main structures:
 
-- ``exports`` : suivi d’un dossier (mtimes, JSON d’assets, JSON de types MIME).
-- ``conversations`` : JSON complet sérialisé, flags ``has_asset`` /
-  ``has_audio`` pré-calculés, ordre d’origine (``sort_index``).
-- ``conversation_search`` : table virtuelle FTS5 (``title`` + contenu aplati)
-  pour la route ``/search``.
+- ``exports``: tracks a folder (mtimes, asset mapping JSON, MIME types JSON).
+- ``conversations``: serialized conversations with preserved order (``sort_index``)
+  plus precomputed ``has_asset`` / ``has_audio`` flags.
+- ``conversation_search``: an FTS5 virtual table (``title`` + flattened content)
+  used by the ``/search`` route.
 
-L’insertion utilise ``_bulk_insert_conversations`` qui :
+Insertion uses ``_bulk_insert_conversations`` which:
 
-- calcule les flags via ``conversation_has_asset`` et ``conversation_has_audio`` ;
-- sérialise la conversation en UTF-8 sans perte ;
-- alimente FTS si l’extension est disponible.
+- computes the flags through ``conversation_has_asset`` and ``conversation_has_audio``;
+- stores the conversation JSON exactly as received (UTF-8, no mutation);
+- feeds FTS if the extension is available.
 
-Parsing et extraction
----------------------
+Parsing and extraction
+----------------------
 
-La logique historique est conservée dans ``app_core/parsing`` :
+The legacy parsing logic lives in ``app_core/parsing``:
 
-- ``load_conversations_json`` lit la liste brute.
-- ``load_asset_mapping`` cherche ``assetsJson`` dans ``chat.html`` via la même
-  expression régulière que précédemment.
-- ``detect_file_types`` utilise ``python-magic`` si disponible, sinon
-  ``mimetypes`` (cf. section dédiée).
+- ``load_conversations_json`` reads the raw list.
+- ``load_asset_mapping`` extracts ``assetsJson`` from ``chat.html`` with the same
+  regular expression as before.
+- ``detect_file_types`` prefers ``python-magic`` when available and falls back to
+  ``mimetypes`` (see the dedicated section).
 
-Le module renvoie un ``ExportData`` prêt à être stocké ou renvoyé tel quel.
+The module returns an ``ExportData`` structure that is ready to be stored or sent as-is.
 
-Recherche plein texte
----------------------
+Full-text search
+----------------
 
-La route ``/search`` s’appuie sur ``conversation_search MATCH ?`` (FTS5). Les
-variantes Whoosh ont été retirées. Si FTS n’est pas présent dans le SQLite de
-l’hôte, un message 501 est renvoyé et l’interface peut désactiver la recherche.
-
+The ``/search`` route uses ``conversation_search MATCH ?`` (FTS5). Past Whoosh
+variants have been removed. If the host SQLite build lacks FTS5, the server responds
+with HTTP 501 and the interface can disable the search box accordingly.
