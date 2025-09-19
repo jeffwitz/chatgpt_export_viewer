@@ -257,6 +257,16 @@ function toggleDateRangeVisibility() {
             }
         }
     } else {
+        if (searchStartInput) searchStartInput.value = '';
+        if (searchEndInput) searchEndInput.value = '';
+        clearTimeout(searchDebounceTimeout);
+        const queryPresent = !!(searchBox && searchBox.value.trim());
+        if (queryPresent) {
+            scheduleSearch();
+        } else {
+            updateDisplayedConversationList();
+            setSearchStatus('');
+        }
         searchRangePanel.classList.add('d-none');
         toggleDateFiltersButton.textContent = 'Date range';
         toggleDateFiltersButton.setAttribute('aria-expanded', 'false');
