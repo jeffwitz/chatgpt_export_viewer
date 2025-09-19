@@ -843,19 +843,19 @@ function escapeRegex(value) {
 }
 
 function normalizeLanguageAlias(language) {
-    if (!language) return 'plain';
+    if (!language) return '';
     const key = language.toLowerCase();
     return CODE_LANGUAGE_ALIASES[key] || key;
 }
 
 function looksLikeLatexSource(source) {
     if (typeof source !== 'string') return false;
-    return /\\(?:begin|end|frac|left|right|text|mathit|mathrm|mathbf|mathbb|documentclass|usepackage|section|subsection)/.test(source);
+    return /\\(?:begin|end|frac|left|right|text|mathit|mathrm|mathbf|mathbb|documentclass|usepackage|section|subsection)/i.test(source);
 }
 
 function getHighlightPatterns(language, source) {
     const normalisedLang = normalizeLanguageAlias(language);
-    const effectiveLang = normalisedLang === 'latex' || (!normalisedLang && looksLikeLatexSource(source)) ? 'latex' : normalisedLang;
+    const effectiveLang = normalisedLang || (looksLikeLatexSource(source) ? 'latex' : '');
     const patterns = [];
 
     patterns.push({ regex: /"(?:\\.|[^"\\])*"/g, type: 'string', priority: 40 });
